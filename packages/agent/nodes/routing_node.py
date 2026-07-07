@@ -27,6 +27,15 @@ def decide_from_validation_report(report: ValidationReport) -> RoutingDecision:
             safe_to_continue=True
         )
 
+    if "REFERENCE_SOLUTION_UNVERIFIED" in error_codes:
+        return RoutingDecision(
+            action="regenerate_testcases",
+            reason="정답 코드가 Judge0 검증을 통과하지 못했습니다. 테스트케이스/문제 재생성이 필요합니다.",
+            confidence="medium",
+            blocking_issue_codes=error_codes,
+            safe_to_continue=True
+        )
+
     if "UNSUPPORTED_DETERMINISTIC_GENERATOR" in error_codes:
         return RoutingDecision(
             action="request_human_review",

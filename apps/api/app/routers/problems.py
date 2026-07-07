@@ -7,12 +7,20 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from agent.schemas import GeneratedProblem, HintBundle, TestcaseBundle
+from agent.schemas import GeneratedProblem, HintBundle, ReferenceSolution, TestcaseBundle
 from app.auth import get_current_user_id
 from app.db import get_db
 from app.gateway import AgentGateway, get_agent_gateway
+from app.models.community import ProblemReport
 from app.models.problem import Problem, TestCase, Hint
-from app.schemas.domain import ProblemSummaryResponse, ProblemDetailResponse
+from app.schemas.domain import (
+    ProblemReportRequest,
+    ProblemReportResponse,
+    ProblemSummaryResponse,
+    ProblemDetailResponse,
+    RevealSolutionRequest,
+    RevealSolutionResponse,
+)
 from app.schemas.problems import ProblemGenerateRequest
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
@@ -65,6 +73,9 @@ async def generate_problem(
         )
     tc_bundle = TestcaseBundle(**package.testcase_bundle)
     hint_bundle = HintBundle(**package.hint_bundle) if package.hint_bundle else None
+    reference_solution = (
+        ReferenceSolution(**package.reference_solution) if package.reference_solution else None
+    )
 
     # DB 저장
     if db.get(Problem, generated.problem_id):
@@ -84,6 +95,7 @@ async def generate_problem(
             sample_input=generated.sample_input,
             sample_output=generated.sample_output,
             expected_time_complexity=generated.expected_time_complexity,
+            reference_solution=reference_solution.code if reference_solution else None,
             created_by=user_id,
         )
         db.add(problem_orm)
@@ -148,3 +160,60 @@ def get_problem(
     if not problem:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
     return ProblemDetailResponse.model_validate(problem)
+
+
+@router.post("/{problem_id}/reveal-solution", response_model=RevealSolutionResponse)
+def reveal_solution(
+    problem_id: str,
+    body: RevealSolutionRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> RevealSolutionResponse:
+    """정답 코드 열람 — 명시적 확인(confirm=true) 후에만 공개한다 (FR-20, 정책 1).
+
+    힌트 채널과 완전히 분리된 별도 엔드포인트이며, 힌트 응답에는 절대 포함되지 않는다.
+    """
+    if not body.confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="명시적 확인(confirm=true)이 필요합니다.",
+        )
+
+    problem = db.get(Problem, problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
+
+    if not problem.reference_solution:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="이 문제는 아직 정답 코드가 준비되지 않았습니다.",
+        )
+
+    return RevealSolutionResponse(
+        problem_id=problem.id,
+        language="python",
+        code=problem.reference_solution,
+    )
+
+
+@router.post(
+    "/{problem_id}/report",
+    response_model=ProblemReportResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def report_problem(
+    problem_id: str,
+    body: ProblemReportRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> ProblemReportResponse:
+    """품질 낮은 생성 문제 신고 (FR-34)."""
+    problem = db.get(Problem, problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
+
+    report = ProblemReport(user_id=user_id, problem_id=problem_id, reason=body.reason)
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return ProblemReportResponse.model_validate(report)

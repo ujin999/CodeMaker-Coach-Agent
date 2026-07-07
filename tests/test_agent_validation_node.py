@@ -6,12 +6,14 @@ from agent.schemas import (
     GeneratedTestcase,
     HintBundle,
     Hint,
+    ReferenceSolution,
 )
 from agent.nodes.validation_node import (
     validate_generation_outputs,
     validate_problem_basic,
     validate_testcase_bundle,
     validate_hint_bundle,
+    validate_reference_solution,
 )
 
 
@@ -169,3 +171,38 @@ def test_hint_bundle_safety_validation():
     report3 = validate_generation_outputs(problem, hint_bundle=code_leak_bundle)
     assert report3.passed is False
     assert any(issue.code == "FULL_SOLUTION_REVEALED" for issue in report3.issues)
+
+
+def test_verified_reference_solution_passes_validation():
+    """Test E: A verified reference solution adds no issues."""
+    problem = create_dummy_problem()
+    ref = ReferenceSolution(
+        problem_id=problem.problem_id,
+        language="python",
+        code="print(0)",
+        generator_name="budget_cap",
+        verified=True,
+        verification_notes="6개 테스트케이스 모두 일치.",
+    )
+    issues = validate_reference_solution(ref)
+    assert issues == []
+
+    report = validate_generation_outputs(problem, reference_solution=ref)
+    assert report.passed is True
+    assert "reference_solution" in report.checked_sections
+
+
+def test_unverified_reference_solution_fails_validation():
+    """Test F: An unverified reference solution fails validation (FR-8)."""
+    problem = create_dummy_problem()
+    ref = ReferenceSolution(
+        problem_id=problem.problem_id,
+        language="python",
+        code="print(0)",
+        generator_name="budget_cap",
+        verified=False,
+        verification_notes="1개 중 1개 불일치",
+    )
+    report = validate_generation_outputs(problem, reference_solution=ref)
+    assert report.passed is False
+    assert any(issue.code == "REFERENCE_SOLUTION_UNVERIFIED" for issue in report.issues)

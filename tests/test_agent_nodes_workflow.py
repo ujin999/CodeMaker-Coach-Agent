@@ -93,8 +93,10 @@ def test_missing_generated_problem_raises_value_error():
 
 def test_run_package_workflow_monkeypatched(monkeypatch):
     """Test D: run_package_workflow executes the full pipeline end-to-end with mock generation chains."""
+    # Reference solver verification hits Judge0 over the network; skip it in this offline unit test.
+    monkeypatch.setenv("ENV", "test")
     problem = create_dummy_problem()
-    
+
     # Mock the LLM chains to return dummy/pre-computed structures instead of hitting external services
     def mock_generate_problem(input_data):
         return problem

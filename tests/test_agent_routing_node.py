@@ -59,6 +59,23 @@ def test_unsupported_generator():
     assert "UNSUPPORTED_DETERMINISTIC_GENERATOR" in decision.blocking_issue_codes
 
 
+def test_reference_solution_unverified():
+    """Test C2: Unverified reference solution triggers regenerate_testcases action."""
+    report = ValidationReport(
+        passed=False,
+        issues=[
+            ValidationIssue(
+                severity="error",
+                code="REFERENCE_SOLUTION_UNVERIFIED",
+                message="정답 코드가 Judge0 검증을 통과하지 못했습니다."
+            )
+        ]
+    )
+    decision = decide_from_validation_report(report)
+    assert decision.action == "regenerate_testcases"
+    assert "REFERENCE_SOLUTION_UNVERIFIED" in decision.blocking_issue_codes
+
+
 def test_hint_leak():
     """Test D: Hint leak issue triggers revise_hints action."""
     report = ValidationReport(
