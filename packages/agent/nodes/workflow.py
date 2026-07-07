@@ -2,6 +2,7 @@ from agent.schemas import ProblemGenerationInput, GeneratedProblem, SubmissionRe
 from agent.nodes.state import AgentState
 from agent.nodes.problem_generation_node import generate_problem_node
 from agent.nodes.testcase_generation_node import generate_testcases_node
+from agent.nodes.reference_solver_node import generate_reference_solution_node
 from agent.nodes.hint_generation_node import generate_hints_node
 from agent.nodes.validation_node import validate_outputs_node
 from agent.nodes.feedback_node import generate_feedback_node
@@ -36,14 +37,17 @@ def run_package_workflow(
     # 2. Testcase generation
     state = generate_testcases_node(state)
 
-    # 3. Optional Hint generation
+    # 3. Reference solution generation + Judge0 verification
+    state = generate_reference_solution_node(state)
+
+    # 4. Optional Hint generation
     if include_hints:
         state = generate_hints_node(state)
 
-    # 4. Validation
+    # 5. Validation
     state = validate_outputs_node(state)
 
-    # 5. Routing
+    # 6. Routing
     state = route_next_action_node(state)
 
     return state

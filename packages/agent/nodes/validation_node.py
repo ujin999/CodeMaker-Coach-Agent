@@ -4,6 +4,7 @@ from agent.schemas import (
     GeneratedProblem,
     TestcaseBundle,
     HintBundle,
+    ReferenceSolution,
     ValidationIssue,
     ValidationReport,
 )
@@ -283,13 +284,37 @@ def validate_hint_bundle(
     return issues
 
 
+def validate_reference_solution(reference_solution: ReferenceSolution | None) -> list[ValidationIssue]:
+    """
+    Validate that the reference solution was verified against Judge0 (FR-8).
+    """
+    issues = []
+
+    if reference_solution is None:
+        return issues
+
+    if not reference_solution.verified:
+        issues.append(ValidationIssue(
+            severity="error",
+            code="REFERENCE_SOLUTION_UNVERIFIED",
+            message=(
+                "Reference solution failed Judge0 verification or could not be verified: "
+                f"{reference_solution.verification_notes}"
+            ),
+            location="reference_solution"
+        ))
+
+    return issues
+
+
 def validate_generation_outputs(
     problem: GeneratedProblem,
     testcase_bundle: TestcaseBundle | None = None,
     hint_bundle: HintBundle | None = None,
+    reference_solution: ReferenceSolution | None = None,
 ) -> ValidationReport:
     """
-    Aggregate problem, testcase, and hint validation into ValidationReport.
+    Aggregate problem, testcase, hint, and reference solution validation into ValidationReport.
     """
     issues = []
     checked_sections = []
@@ -304,6 +329,10 @@ def validate_generation_outputs(
     if hint_bundle is not None:
         issues.extend(validate_hint_bundle(problem, hint_bundle))
         checked_sections.append("hints")
+
+    if reference_solution is not None:
+        issues.extend(validate_reference_solution(reference_solution))
+        checked_sections.append("reference_solution")
 
     error_count = sum(1 for issue in issues if issue.severity == "error")
     passed = (error_count == 0)
@@ -331,8 +360,9 @@ def validate_outputs_node(state: AgentState) -> AgentState:
     problem = state["generated_problem"]
     testcases = state.get("testcase_bundle", None)
     hints = state.get("hint_bundle", None)
+    reference_solution = state.get("reference_solution", None)
 
-    report = validate_generation_outputs(problem, testcases, hints)
+    report = validate_generation_outputs(problem, testcases, hints, reference_solution)
 
     new_state = state.copy()
     new_state["validation_report"] = report

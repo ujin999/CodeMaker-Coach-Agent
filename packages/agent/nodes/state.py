@@ -4,6 +4,7 @@ from agent.schemas import (
     GeneratedProblem,
     TestcaseBundle,
     HintBundle,
+    ReferenceSolution,
     ValidationReport,
     SubmissionResult,
     FeedbackReport,
@@ -18,6 +19,7 @@ class AgentState(TypedDict, total=False):
     generated_problem: GeneratedProblem
     testcase_bundle: TestcaseBundle
     hint_bundle: HintBundle
+    reference_solution: Optional[ReferenceSolution]
     validation_report: ValidationReport
     submission_result: SubmissionResult
     feedback_report: FeedbackReport

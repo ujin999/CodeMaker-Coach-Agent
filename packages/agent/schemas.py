@@ -303,3 +303,17 @@ class SubmissionEvaluationReport(BaseModel):
             raise ValueError("result_type cannot be AC if not all testcases have status AC")
 
         return self
+
+
+class ReferenceSolution(BaseModel):
+    """내부 정답 코드 — 절대 힌트/일반 API 응답으로 노출하지 않는다 (FR-20, 정책 1).
+
+    문제와 동일한 결정론적 solver 로직으로 생성되며, Judge0에서 testcase_bundle에
+    대해 실행 검증한 뒤 verified 플래그가 채워진다.
+    """
+    problem_id: str
+    language: str = "python"
+    code: str
+    generator_name: str
+    verified: bool = False
+    verification_notes: str = ""

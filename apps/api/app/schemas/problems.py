@@ -20,6 +20,7 @@ class ProblemGenerateResponse(BaseModel):
     generated_problem: dict
     testcase_bundle: Optional[dict] = None
     hint_bundle: Optional[dict] = None
+    reference_solution: Optional[dict] = None
     validation_report: Optional[dict] = None
     routing_decision: Optional[dict] = None
     gateway_mode: str = "unknown"

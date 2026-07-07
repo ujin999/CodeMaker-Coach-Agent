@@ -41,6 +41,19 @@ class ProblemDetailResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class RevealSolutionRequest(BaseModel):
+    """정답 코드 열람 요청 — 명시적 확인 필수 (FR-20)."""
+    confirm: bool = Field(description="'정말 정답을 확인하시겠습니까?'에 대한 명시적 동의")
+
+
+class RevealSolutionResponse(BaseModel):
+    problem_id: str
+    language: str
+    code: str
+
+    model_config = {"from_attributes": True}
+
+
 # ── Submission ───────────────────────────────────────────────────────────────
 
 class SubmissionRequest(BaseModel):
@@ -115,6 +128,21 @@ class CommentResponse(BaseModel):
     id: int
     user_id: int
     content: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Problem Report (FR-34) ────────────────────────────────────────────────────
+
+class ProblemReportRequest(BaseModel):
+    reason: str = Field(min_length=1, description="문제 품질 신고 사유")
+
+
+class ProblemReportResponse(BaseModel):
+    id: int
+    problem_id: str
+    reason: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
