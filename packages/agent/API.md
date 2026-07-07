@@ -304,7 +304,7 @@
     ) -> AgentState:
     ```
 *   **상세 설명**:
-    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 오답 원인 진단 -> 실패 케이스 세부 분석 -> 시간/공간 복잡도 분석 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
+    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 오답 원인 진단 -> 실패 케이스 세부 분석 -> 시간/공간 복잡도 분석 -> 반례 리포트 생성 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
 
 ### 3.15 diagnose_submission_node
 *   **임포트 경로**:
@@ -331,6 +331,16 @@
 *   **상세 설명**:
     - 학습자가 제출한 소스 코드를 실행하지 않고 텍스트 패턴 분석(중첩 루프, 내부 정렬, 재귀, BFS/DFS 자료구조 검색 등)을 거쳐 의심되는 시간/공간 복잡도를 평가하고 피드백을 수립하는 오프라인 분석 노드입니다.
     - 분석된 결과는 `complexity_analysis` 필드에 `ComplexityAnalysis` 규격으로 저장됩니다.
+
+### 3.19 build_counterexample_node
+*   **임포트 경로**:
+    ```python
+    from agent.nodes import build_counterexample_node
+    ```
+*   **상세 설명**:
+    - 실패한 테스트케이스를 기반으로, 어떤 입력값에서 정답 코드와 사용자 제출 코드의 출력이 갈렸는지(또는 런타임/시간초과 예외가 발생했는지)를 요약하는 리포트(`CounterexampleReport`)를 생성하는 노드입니다.
+    - 오답 원인 진단 결과(`ErrorDiagnosis`)에 대응하여 복구를 위해 필요한 학습 포인트를 힌트로 제공합니다.
+    - 리포트는 `counterexample_report` 필드에 저장됩니다.
 
 ### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
@@ -508,6 +518,19 @@
     - `risk_level` (Literal): 성능 위험 수준 (`low`, `medium`, `high`).
     - `evidence` (List[str]): 복잡도를 예측한 상세 텍스트 근거 목록.
     - `suggested_actions` (List[str]): 학습자의 성능 저하 복구를 위한 개선 제안 액션 리스트.
+
+### 4.16 CounterexampleReport
+*   **목적**: 오답 코드 수정 시 참고 가능한 반례 정보와 교정 핵심 팁(Lesson) 제공 리포트.
+*   **핵심 필드**:
+    - `problem_id` (str): 문제 번호.
+    - `result_type` (str): 채점 판정 코드.
+    - `testcase_name` (Optional[str]): 실패한 케이스 명칭.
+    - `counterexample_input` (Optional[str]): 반례 입력 데이터 내용.
+    - `expected_output` (Optional[str]): 해당 입력에 매치되는 시스템의 정답 출력.
+    - `actual_output` (Optional[str]): 사용자 소스코드가 뱉은 실제 출력.
+    - `explanation` (str): 반례 상황에 대한 한국어 요약 설명.
+    - `lesson` (Optional[str]): 오답 분석에 대응하는 정정 팁 텍스트.
+    - `safe_to_show` (bool): 코드 노출 등에 대비한 안전 필터링 상태.
 
 ---
 

@@ -11,6 +11,7 @@ from agent.nodes.submission_evaluation_node import evaluate_submission_node
 from agent.nodes.error_diagnosis_node import diagnose_submission_node
 from agent.nodes.failed_case_explanation_node import explain_failed_case_node
 from agent.nodes.complexity_analysis_node import analyze_complexity_node
+from agent.nodes.counterexample_node import build_counterexample_node
 
 
 def run_package_workflow(
@@ -62,7 +63,7 @@ def run_feedback_workflow(
 ) -> AgentState:
     """
     Run deterministic feedback workflow:
-    problem + submission_result -> diagnosis -> failed case explanation -> complexity analysis -> feedback -> routing.
+    problem + submission_result -> diagnosis -> failed case explanation -> complexity analysis -> counterexample -> feedback -> routing.
     """
     state = AgentState(
         generated_problem=problem,
@@ -75,6 +76,7 @@ def run_feedback_workflow(
     state = explain_failed_case_node(state)
     if problem is not None and submission_result is not None:
         state = analyze_complexity_node(state)
+        state = build_counterexample_node(state)
     state = generate_feedback_node(state)
     state = route_next_action_node(state)
     return state
@@ -88,7 +90,7 @@ def run_submission_review_workflow(
 ) -> AgentState:
     """
     Run:
-    testcase run results -> submission evaluation -> diagnosis -> failed case explanation -> complexity analysis -> feedback -> routing
+    testcase run results -> submission evaluation -> diagnosis -> failed case explanation -> complexity analysis -> counterexample -> feedback -> routing
     """
     state = AgentState(
         generated_problem=problem,
@@ -117,10 +119,13 @@ def run_submission_review_workflow(
     # 4. Run complexity analysis
     state = analyze_complexity_node(state)
 
-    # 5. Generate feedback report
+    # 5. Run counterexample explanation
+    state = build_counterexample_node(state)
+
+    # 6. Generate feedback report
     state = generate_feedback_node(state)
 
-    # 6. Routing decision
+    # 7. Routing decision
     state = route_next_action_node(state)
 
     return state

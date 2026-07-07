@@ -17,6 +17,7 @@ from agent.schemas import (
     FailedCaseExplanation,
     ReferenceSolution,
     ComplexityAnalysis,
+    CounterexampleReport,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "FailedCaseExplanation",
     "ReferenceSolution",
     "ComplexityAnalysis",
+    "CounterexampleReport",
 ]

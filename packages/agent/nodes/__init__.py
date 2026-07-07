@@ -49,6 +49,10 @@ from agent.nodes.complexity_analysis_node import (
     analyze_complexity,
     analyze_complexity_node,
 )
+from agent.nodes.counterexample_node import (
+    build_counterexample_report,
+    build_counterexample_node,
+)
 from agent.nodes.workflow import (
     run_package_workflow,
     run_feedback_workflow,
@@ -96,4 +100,6 @@ __all__ = [
     "infer_code_pattern",
     "analyze_complexity",
     "analyze_complexity_node",
+    "build_counterexample_report",
+    "build_counterexample_node",
 ]

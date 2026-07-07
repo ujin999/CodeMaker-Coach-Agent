@@ -433,3 +433,43 @@ class ComplexityAnalysis(BaseModel):
         if unsafe:
             self.safe_to_show = False
         return self
+
+
+class CounterexampleReport(BaseModel):
+    problem_id: str
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    testcase_name: Optional[str] = None
+    counterexample_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    explanation: str
+    lesson: Optional[str] = None
+    safe_to_show: bool = True
+
+    @model_validator(mode="after")
+    def validate_safety_policy(self) -> "CounterexampleReport":
+        if not self.explanation or not self.explanation.strip():
+            raise ValueError("explanation must be non-empty.")
+
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return ",
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        for field in [self.explanation, self.lesson]:
+            if not field:
+                continue
+            field_lower = field.lower()
+            if any(kw in field_lower for kw in kws):
+                if not any(ph in field_lower for ph in placeholders):
+                    unsafe = True
+                    break
+        if unsafe:
+            self.safe_to_show = False
+        return self

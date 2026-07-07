@@ -225,6 +225,17 @@ def generate_feedback_node(state: AgentState) -> AgentState:
         else:
             report = report.validate_safety_policy()
 
+    counterexample = state.get("counterexample_report")
+    if counterexample:
+        if counterexample.explanation:
+            report.likely_causes = list(report.likely_causes) + [counterexample.explanation]
+        if counterexample.lesson:
+            report.next_steps = list(report.next_steps) + [counterexample.lesson]
+        if not counterexample.safe_to_show:
+            report.safe_to_show = False
+        else:
+            report = report.validate_safety_policy()
+
     new_state = state.copy()
     new_state["feedback_report"] = report
     return new_state
