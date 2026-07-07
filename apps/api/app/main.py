@@ -10,10 +10,12 @@ import logging
 from fastapi import FastAPI
 
 from app.gateway import StubAgentGateway, get_agent_gateway
+from app.routers import problems_router
 
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="CodeMaker Coach API", version="0.1.0")
+app.include_router(problems_router)
 
 
 @app.get("/health")

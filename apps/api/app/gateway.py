@@ -29,6 +29,7 @@ from agent.schemas import (
     ProblemGenerationInput,
     TestcaseBundle,
 )
+from app.schemas.problems import ProblemGenerateRequest, ProblemGenerateResponse
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,11 @@ class AgentGateway(Protocol):
     async def analyze_feedback(
         self, *, problem_id: str, result_type: str, user_code: str, allowed_level: int
     ) -> Feedback: ...
+
+    async def generate_problem_package(
+        self,
+        request: ProblemGenerateRequest,
+    ) -> ProblemGenerateResponse: ...
 
 
 class LiveAgentGateway:
@@ -128,6 +134,52 @@ class LiveAgentGateway:
             result_type,
         )
         return _stub_feedback(result_type)
+
+    async def generate_problem_package(
+        self,
+        request: ProblemGenerateRequest,
+    ) -> ProblemGenerateResponse:
+        from agent import ProblemGenerationInput
+        from agent.nodes import run_package_workflow
+
+        gen_input = ProblemGenerationInput(
+            algorithm=request.algorithm,
+            difficulty=request.difficulty,
+            problem_style=request.problem_style,
+            language=request.language,
+            learning_goal=request.learning_goal,
+            user_level=request.user_level,
+            recent_weaknesses=request.recent_weaknesses
+        )
+
+        state = await asyncio.to_thread(
+            run_package_workflow,
+            generation_input=gen_input,
+            min_cases=request.min_cases,
+            allowed_hint_level=request.allowed_hint_level,
+            include_hints=request.include_hints
+        )
+
+        problem = state.get("generated_problem")
+        testcases = state.get("testcase_bundle")
+        hints = state.get("hint_bundle")
+        report = state.get("validation_report")
+        decision = state.get("routing_decision")
+
+        prob_dict = problem.model_dump() if problem else {}
+        tc_dict = testcases.model_dump() if testcases else None
+        hint_dict = hints.model_dump() if hints else None
+        rep_dict = report.model_dump() if report else None
+        dec_dict = decision.model_dump() if decision else None
+
+        return ProblemGenerateResponse(
+            generated_problem=prob_dict,
+            testcase_bundle=tc_dict,
+            hint_bundle=hint_dict,
+            validation_report=rep_dict,
+            routing_decision=dec_dict,
+            gateway_mode="live"
+        )
 
 
 class StubAgentGateway:
@@ -240,6 +292,75 @@ class StubAgentGateway:
         self, *, problem_id: str, result_type: str, user_code: str, allowed_level: int
     ) -> Feedback:
         return _stub_feedback(result_type)
+
+    async def generate_problem_package(
+        self,
+        request: ProblemGenerateRequest,
+    ) -> ProblemGenerateResponse:
+        algo = request.algorithm
+        generated_problem = {
+            "problem_id": f"stub-{algo}-001",
+            "title": f"[STUB] {algo} 연습 문제",
+            "difficulty": request.difficulty,
+            "algorithm": [algo],
+            "learning_goal": request.learning_goal or "기본 로직 이해",
+            "statement": "정수 배열에서 두 수의 합이 target이 되는 두 인덱스를 찾으시오. (STUB)",
+            "input_format": "첫 줄에 N과 target, 둘째 줄에 N개의 정수",
+            "output_format": "두 인덱스(오름차순), 없으면 -1",
+            "constraints": ["1 <= N <= 100000", "|a_i| <= 10^9"],
+            "sample_input": "4 9\n2 7 11 15",
+            "sample_output": "0 1",
+            "expected_time_complexity": "O(N)",
+            "hint_blueprint": {
+                "intended_algorithm": [algo],
+                "core_insight": "필요한 값을 자료구조로 빠르게 조회한다.",
+                "common_misconceptions": ["이중 for문으로 O(N^2) 작성"],
+                "edge_case_focus": ["중복 원소", "정답 없음"],
+                "forbidden_disclosures": ["완성된 정답 코드"],
+                "level_1_guidance": "완전 탐색 말고 더 빠른 방법을 떠올려보세요.",
+                "level_2_guidance": "해시맵에 본 값을 저장하는 접근을 생각해보세요.",
+                "level_3_guidance": "반복문 안에서 보수(target-x) 존재 여부를 확인하세요.",
+                "allowed_code_exposure": "skeleton_only"
+            }
+        }
+        testcase_bundle = {
+            "problem_id": f"stub-{algo}-001",
+            "testcases": [
+                {
+                    "name": "sample-1",
+                    "input_data": "4 9\n2 7 11 15",
+                    "expected_output": "0 1",
+                    "visibility": "sample",
+                    "purpose": "기본 동작 확인 (STUB)",
+                    "calculation_steps": "기본 케이스 검증 단계"
+                }
+            ],
+            "generation_notes": "STUB testcases",
+            "generation_mode": "deterministic",
+            "generator_name": "stub_generator",
+            "verification_status": "passed"
+        }
+        validation_report = {
+            "passed": True,
+            "issues": [],
+            "checked_sections": ["problem", "testcases"],
+            "summary": "검증을 통과했습니다."
+        }
+        routing_decision = {
+            "action": "present_to_user",
+            "reason": "모든 검증을 통과했습니다.",
+            "confidence": "high",
+            "blocking_issue_codes": [],
+            "safe_to_continue": True
+        }
+        return ProblemGenerateResponse(
+            generated_problem=generated_problem,
+            testcase_bundle=testcase_bundle,
+            hint_bundle=None,
+            validation_report=validation_report,
+            routing_decision=routing_decision,
+            gateway_mode="stub"
+        )
 
 
 def _stub_blueprint(algorithms: list[str]) -> HintBlueprint:
