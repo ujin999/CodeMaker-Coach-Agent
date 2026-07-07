@@ -28,7 +28,7 @@ import type {
 } from "./types";
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:10000";
 
 export class ApiError extends Error {
   status: number;
@@ -48,10 +48,19 @@ async function request<T>(
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch {
+    // Network error (connection refused, DNS failure, etc.)
+    throw new ApiError(
+      0,
+      "백엔드 API에 연결할 수 없습니다. NEXT_PUBLIC_API_BASE_URL과 API 서버 상태를 확인하세요."
+    );
+  }
 
   if (res.status === 401) {
     clearToken();

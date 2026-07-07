@@ -139,40 +139,36 @@ class LiveAgentGateway:
         self,
         request: ProblemGenerateRequest,
     ) -> ProblemGenerateResponse:
-        from agent import ProblemGenerationInput
-        from agent.nodes import run_package_workflow
+        from agent import generate_problem_package, ProblemGenerationPackageInput
 
-        gen_input = ProblemGenerationInput(
+        pkg_input = ProblemGenerationPackageInput(
             algorithm=request.algorithm,
             difficulty=request.difficulty,
             problem_style=request.problem_style,
             language=request.language,
             learning_goal=request.learning_goal,
             user_level=request.user_level,
-            recent_weaknesses=request.recent_weaknesses
-        )
-
-        state = await asyncio.to_thread(
-            run_package_workflow,
-            generation_input=gen_input,
+            recent_weaknesses=request.recent_weaknesses,
             min_cases=request.min_cases,
             allowed_hint_level=request.allowed_hint_level,
             include_hints=request.include_hints
         )
 
-        problem = state.get("generated_problem")
-        testcases = state.get("testcase_bundle")
-        hints = state.get("hint_bundle")
-        reference_solution = state.get("reference_solution")
-        report = state.get("validation_report")
-        decision = state.get("routing_decision")
+        package = await generate_problem_package(pkg_input)
 
-        prob_dict = problem.model_dump() if problem else {}
-        tc_dict = testcases.model_dump() if testcases else None
-        hint_dict = hints.model_dump() if hints else None
-        ref_dict = reference_solution.model_dump() if reference_solution else None
-        rep_dict = report.model_dump() if report else None
-        dec_dict = decision.model_dump() if decision else None
+        prob_dict = package.generated_problem.model_dump() if package.generated_problem else {}
+        tc_dict = package.testcase_bundle.model_dump() if package.testcase_bundle else None
+        hint_dict = package.hint_bundle.model_dump() if package.hint_bundle else None
+        ref_dict = package.reference_solution.model_dump() if package.reference_solution else None
+        rep_dict = package.validation_report.model_dump() if package.validation_report else None
+
+        routing_decision = {
+            "action": "present_to_user" if package.safe_to_show else "regenerate_problem",
+            "reason": package.summary,
+            "confidence": "high",
+            "blocking_issue_codes": [],
+            "safe_to_continue": package.safe_to_show
+        }
 
         return ProblemGenerateResponse(
             generated_problem=prob_dict,
@@ -180,7 +176,7 @@ class LiveAgentGateway:
             hint_bundle=hint_dict,
             reference_solution=ref_dict,
             validation_report=rep_dict,
-            routing_decision=dec_dict,
+            routing_decision=routing_decision,
             gateway_mode="live"
         )
 

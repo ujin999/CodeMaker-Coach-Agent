@@ -21,6 +21,12 @@ from app.models.problem import Hint, Problem
 from app.models.submission import HintProgress
 from app.schemas.domain import HintProgressResponse, HintResponse, HintUnlockRequest
 
+from agent import (
+    request_hint_package,
+    hint_package_to_dict,
+    HintRequestPackageInput,
+)
+
 router = APIRouter(prefix="/api/hints", tags=["hints"])
 
 
@@ -48,6 +54,103 @@ def _get_or_create_progress(user_id: int, problem_id: str, db: Session) -> HintP
                 .first()
             )
     return progress
+
+
+@router.post("/request", status_code=status.HTTP_200_OK)
+async def request_hint(
+    body: HintRequestPackageInput,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+    gateway: AgentGateway = Depends(_dep_gateway),
+) -> dict:
+    """챗봇형 힌트 요청 — Agent 패키지의 비동기 request_hint_package() 호출.
+
+    서버 측에서 DB의 allowed_level을 강제 조회하여 body의 allowed_level을 덮어씌운다.
+    requested_level이 allowed_level보다 큰 경우 차단(blocked) 응답을 반환한다.
+    """
+    problem = db.get(Problem, body.problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
+
+    progress = _get_or_create_progress(user_id, body.problem_id, db)
+    
+    # Enforce allowed_level server-side!
+    body.allowed_level = progress.allowed_level
+
+    # DB에서 힌트 조회
+    hints = (
+        db.query(Hint)
+        .filter(Hint.problem_id == body.problem_id)
+        .order_by(Hint.level)
+        .all()
+    )
+
+    if not hints:
+        # 힌트가 없으면 Agent로 생성 후 저장
+        from agent.schemas import GeneratedProblem, HintBlueprint
+        generated = GeneratedProblem(
+            problem_id=problem.id,
+            title=problem.title,
+            difficulty=problem.difficulty,
+            algorithm=problem.algorithm,
+            learning_goal=problem.learning_goal,
+            statement=problem.statement,
+            input_format=problem.input_format,
+            output_format=problem.output_format,
+            constraints=problem.constraints,
+            sample_input=problem.sample_input,
+            sample_output=problem.sample_output,
+            expected_time_complexity=problem.expected_time_complexity,
+            hint_blueprint=HintBlueprint(
+                intended_algorithm=problem.algorithm,
+                core_insight="",
+                common_misconceptions=[],
+                edge_case_focus=[],
+                forbidden_disclosures=[],
+                level_1_guidance="",
+                level_2_guidance="",
+                level_3_guidance="",
+            ),
+        )
+        hint_bundle = await gateway.generate_hints(generated, allowed_level=3)
+        for h in hint_bundle.hints:
+            db.add(Hint(
+                problem_id=body.problem_id,
+                level=h.level,
+                title=h.title,
+                content=h.content,
+                reveals_core_code=False,
+                code_skeleton=h.code_skeleton,
+                concept_refs=h.concept_refs,
+                source=h.source,
+            ))
+        db.commit()
+
+        hints = (
+            db.query(Hint)
+            .filter(Hint.problem_id == body.problem_id)
+            .order_by(Hint.level)
+            .all()
+        )
+
+    # Convert DB Hint models to agent.schemas.Hint objects
+    from agent.schemas import Hint as AgentHint
+    agent_hints = [
+        AgentHint(
+            problem_id=h.problem_id,
+            level=h.level,
+            title=h.title,
+            content=h.content,
+            reveals_core_code=h.reveals_core_code,
+            code_skeleton=h.code_skeleton,
+            concept_refs=h.concept_refs or [],
+            source=h.source or "db"
+        )
+        for h in hints
+    ]
+
+    package = await request_hint_package(body, generated_hints=agent_hints)
+    return hint_package_to_dict(package)
 
 
 @router.get("/{problem_id}/progress", response_model=HintProgressResponse)

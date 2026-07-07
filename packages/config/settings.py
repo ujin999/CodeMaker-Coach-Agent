@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     queue_backend: Literal["memory", "redis"] = "memory"
     redis_url: str = Field(default="redis://localhost:6379/0")
     # 프론트엔드 배포 주소를 콤마로 구분해 등록한다 (CORS 허용 origin).
-    cors_origins: str = "http://localhost:10001,http://127.0.0.1:10001"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:10001,http://127.0.0.1:10001"
 
 
 @lru_cache

@@ -146,3 +146,34 @@ class ProblemReportResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Submission Review (제출 리뷰) ─────────────────────────────────────────────
+
+class SubmissionReviewRequest(BaseModel):
+    """제출 리뷰 요청 — Agent 패키지의 review_submission_package() 호출용."""
+    problem_id: str = Field(description="문제 ID")
+    problem_title: str = Field(default="", description="문제 제목")
+    problem_difficulty: str = Field(default="easy", description="난이도")
+    problem_algorithm: List[str] = Field(default_factory=list, description="알고리즘 태그")
+    problem_statement: str = Field(default="", description="문제 본문")
+    user_code: str = Field(description="사용자 제출 코드")
+    language: str = Field(default="python", description="제출 언어")
+    result_type: str = Field(default="WA", description="채점 결과 (AC/WA/TLE/RE/MLE/CE)")
+    include_concept_context: bool = Field(default=True, description="RAG 개념 컨텍스트 포함 여부")
+
+
+class SubmissionReviewResponse(BaseModel):
+    """제출 리뷰 응답 — review_package_to_dict() 결과를 그대로 반환."""
+    problem_id: str
+    result_type: str
+    summary: str
+    safe_to_show: bool
+    evaluation_report: Optional[dict] = None
+    error_diagnosis: Optional[dict] = None
+    failed_case_explanation: Optional[dict] = None
+    complexity_analysis: Optional[dict] = None
+    counterexample_report: Optional[dict] = None
+    feedback_report: Optional[dict] = None
+    routing_decision: Optional[dict] = None
+    concept_context: List[str] = Field(default_factory=list)

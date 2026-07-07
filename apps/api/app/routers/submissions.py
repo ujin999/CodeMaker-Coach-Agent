@@ -17,7 +17,15 @@ from app.auth import get_current_user_id
 from app.db import get_db
 from app.models.problem import Problem, TestCase
 from app.models.submission import Submission, SolvedRecord, LearningLog
-from app.schemas.domain import SubmissionRequest, SubmissionResponse
+from app.schemas.domain import SubmissionRequest, SubmissionResponse, SubmissionReviewRequest
+
+from agent import (
+    GeneratedProblem,
+    SubmissionResult,
+    review_submission_package,
+    review_package_to_dict,
+)
+from agent.schemas import HintBlueprint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/submissions", tags=["submissions"])
@@ -136,6 +144,57 @@ async def _call_judge0(submission: "Submission", db: Session) -> dict:
     return {"status": worst_status, "runtime_ms": worst_runtime, "memory_kb": worst_memory}
 
 
+@router.post("/review", status_code=status.HTTP_200_OK)
+async def review_submission(
+    body: SubmissionReviewRequest,
+    user_id: int = Depends(get_current_user_id),
+) -> dict:
+    """제출 리뷰 — Agent 패키지의 비동기 review_submission_package() 호출.
+
+    채점 결과와 사용자 코드를 분석하여 오답 원인, 반례 설명, 복잡도 분석 등을
+    포함한 리뷰 패키지를 반환한다. reference_solution은 포함되지 않는다.
+    Judge0 실행 없이 결정론적 분석만 수행한다.
+    """
+    # Reconstruct minimal GeneratedProblem for the review service
+    problem = GeneratedProblem(
+        problem_id=body.problem_id,
+        title=body.problem_title or "Unknown",
+        difficulty=body.problem_difficulty,
+        algorithm=body.problem_algorithm,
+        learning_goal="",
+        statement=body.problem_statement or "",
+        input_format="",
+        output_format="",
+        constraints=[],
+        expected_time_complexity="",
+        hint_blueprint=HintBlueprint(
+            intended_algorithm=body.problem_algorithm,
+            core_insight="",
+            common_misconceptions=[],
+            edge_case_focus=[],
+            forbidden_disclosures=[],
+            level_1_guidance="",
+            level_2_guidance="",
+            level_3_guidance="",
+        ),
+    )
+
+    submission_result = SubmissionResult(
+        problem_id=body.problem_id,
+        result_type=body.result_type,
+        user_code=body.user_code,
+        language=body.language,
+    )
+
+    package = await review_submission_package(
+        problem=problem,
+        submission_result=submission_result,
+        include_concept_context=body.include_concept_context,
+    )
+
+    return review_package_to_dict(package)
+
+
 @router.post("/{problem_id}", response_model=SubmissionResponse, status_code=status.HTTP_202_ACCEPTED)
 async def submit(
     problem_id: str,
@@ -199,3 +258,7 @@ def list_submissions_for_problem(
         .all()
     )
     return [SubmissionResponse.model_validate(s) for s in subs]
+
+
+
+
