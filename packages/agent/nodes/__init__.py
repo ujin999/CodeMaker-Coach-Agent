@@ -31,6 +31,24 @@ from agent.nodes.submission_evaluation_node import (
     build_submission_result_from_evaluation,
     evaluate_submission_node,
 )
+from agent.nodes.error_diagnosis_node import (
+    detect_problem_family,
+    diagnose_wrong_answer,
+    diagnose_runtime_error,
+    diagnose_compile_error,
+    diagnose_timeout,
+    diagnose_submission,
+    diagnose_submission_node,
+)
+from agent.nodes.failed_case_explanation_node import (
+    summarize_failed_case,
+    explain_failed_case_node,
+)
+from agent.nodes.complexity_analysis_node import (
+    infer_code_pattern,
+    analyze_complexity,
+    analyze_complexity_node,
+)
 from agent.nodes.workflow import (
     run_package_workflow,
     run_feedback_workflow,
@@ -66,4 +84,16 @@ __all__ = [
     "build_submission_result_from_evaluation",
     "evaluate_submission_node",
     "run_submission_review_workflow",
+    "detect_problem_family",
+    "diagnose_wrong_answer",
+    "diagnose_runtime_error",
+    "diagnose_compile_error",
+    "diagnose_timeout",
+    "diagnose_submission",
+    "diagnose_submission_node",
+    "summarize_failed_case",
+    "explain_failed_case_node",
+    "infer_code_pattern",
+    "analyze_complexity",
+    "analyze_complexity_node",
 ]

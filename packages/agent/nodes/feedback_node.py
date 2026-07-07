@@ -166,6 +166,65 @@ def generate_feedback_node(state: AgentState) -> AgentState:
 
     report = build_feedback_from_submission(problem, submission)
 
+    diagnosis = state.get("error_diagnosis")
+    explanation = state.get("failed_case_explanation")
+
+    if diagnosis and explanation:
+        cause_map = {
+            "WA_OFF_BY_ONE": "경계 조건 오차(WA_OFF_BY_ONE)",
+            "WA_TOO_LOW_BOUND": "결과 범위 상한 도달 미흡(WA_TOO_LOW_BOUND)",
+            "WA_TOO_HIGH_BOUND": "결과 범위 상한 초과(WA_TOO_HIGH_BOUND)",
+            "WA_WINDOW_UPDATE": "슬라이딩 윈도우 포인터 이동 오류(WA_WINDOW_UPDATE)",
+            "WA_BFS_DISTANCE_OR_VISITED": "BFS 최단거리/방문처리 조건 오류(WA_BFS_DISTANCE_OR_VISITED)",
+            "WA_DFS_COMPONENT_COUNT": "DFS 연결요소 방문 조건 오류(WA_DFS_COMPONENT_COUNT)",
+            "PE_OUTPUT_FORMAT": "출력 포맷 불일치(PE_OUTPUT_FORMAT)",
+            "WA_LOGIC_MISMATCH": "일반 논리 오류(WA_LOGIC_MISMATCH)",
+            "RE_INDEX_ERROR": "인덱스 범위 초과(RE_INDEX_ERROR)",
+            "RE_RECURSION_DEPTH": "재귀 한도 초과(RE_RECURSION_DEPTH)",
+            "RE_VALUE_ERROR": "잘못된 형 변환/값 참조(RE_VALUE_ERROR)",
+            "RE_KEY_ERROR": "잘못된 키 참조(RE_KEY_ERROR)",
+            "RE_RUNTIME_EXCEPTION": "기타 런타임 오류(RE_RUNTIME_EXCEPTION)",
+            "CE_SYNTAX_ERROR": "구문/문법 오류(CE_SYNTAX_ERROR)",
+            "CE_NAME_ERROR": "변수/함수명 오타(CE_NAME_ERROR)",
+            "CE_IMPORT_ERROR": "임포트 오류(CE_IMPORT_ERROR)",
+            "CE_COMPILE_ERROR": "기타 컴파일 오류(CE_COMPILE_ERROR)",
+            "TLE_COMPLEXITY": "시간 복잡도 초과(TLE_COMPLEXITY)",
+            "MLE_SPACE_COMPLEXITY": "공간 복잡도 초과(MLE_SPACE_COMPLEXITY)",
+            "AC_ACCEPTED": "모든 조건 통과(AC_ACCEPTED)",
+            "UNKNOWN_RESULT": "미정의 에러(UNKNOWN_RESULT)",
+        }
+        friendly_cause = cause_map.get(diagnosis.primary_cause, diagnosis.primary_cause)
+        report.summary = f"진단 결과: [{friendly_cause}]. {report.summary}"
+
+        if diagnosis.evidence:
+            report.likely_causes = list(diagnosis.evidence) + list(report.likely_causes)
+        if diagnosis.suggested_focus:
+            report.likely_causes = list(report.likely_causes) + list(diagnosis.suggested_focus)
+
+        if explanation.likely_gap:
+            report.next_steps = [explanation.likely_gap] + list(report.next_steps)
+
+        if not explanation.safe_to_show or not diagnosis.safe_to_show:
+            report.safe_to_show = False
+        else:
+            report = report.validate_safety_policy()
+
+    complexity = state.get("complexity_analysis")
+    if complexity:
+        if complexity.evidence:
+            report.likely_causes = list(complexity.evidence) + list(report.likely_causes)
+        if complexity.suggested_actions:
+            report.next_steps = list(report.next_steps) + list(complexity.suggested_actions)
+        if submission.result_type == "TLE":
+            risk_msg = f"시간 복잡도 분석 결과 위험도가 {complexity.risk_level} 수준으로 감지되었습니다."
+            if complexity.suspected_complexity:
+                risk_msg += f" (의심 복잡도: {complexity.suspected_complexity})"
+            report.summary = f"{risk_msg} {report.summary}"
+        if not complexity.safe_to_show:
+            report.safe_to_show = False
+        else:
+            report = report.validate_safety_policy()
+
     new_state = state.copy()
     new_state["feedback_report"] = report
     return new_state
