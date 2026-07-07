@@ -8,6 +8,8 @@ from agent.nodes.validation_node import validate_outputs_node
 from agent.nodes.feedback_node import generate_feedback_node
 from agent.nodes.routing_node import route_next_action_node
 from agent.nodes.submission_evaluation_node import evaluate_submission_node
+from agent.nodes.error_diagnosis_node import diagnose_submission_node
+from agent.nodes.failed_case_explanation_node import explain_failed_case_node
 
 
 def run_package_workflow(
@@ -59,7 +61,7 @@ def run_feedback_workflow(
 ) -> AgentState:
     """
     Run deterministic feedback workflow:
-    problem + submission_result -> feedback_report -> routing.
+    problem + submission_result -> diagnosis -> failed case explanation -> feedback -> routing.
     """
     state = AgentState(
         generated_problem=problem,
@@ -68,6 +70,8 @@ def run_feedback_workflow(
         metadata={}
     )
 
+    state = diagnose_submission_node(state)
+    state = explain_failed_case_node(state)
     state = generate_feedback_node(state)
     state = route_next_action_node(state)
     return state
@@ -81,7 +85,7 @@ def run_submission_review_workflow(
 ) -> AgentState:
     """
     Run:
-    testcase run results -> submission evaluation -> feedback -> routing
+    testcase run results -> submission evaluation -> diagnosis -> failed case explanation -> feedback -> routing
     """
     state = AgentState(
         generated_problem=problem,
@@ -101,10 +105,16 @@ def run_submission_review_workflow(
     # 1. Evaluate submission results
     state = evaluate_submission_node(state)
 
-    # 2. Generate feedback report
+    # 2. Run error diagnosis
+    state = diagnose_submission_node(state)
+
+    # 3. Run failed case explanation
+    state = explain_failed_case_node(state)
+
+    # 4. Generate feedback report
     state = generate_feedback_node(state)
 
-    # 3. Routing decision
+    # 5. Routing decision
     state = route_next_action_node(state)
 
     return state
