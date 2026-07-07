@@ -342,6 +342,31 @@
     - 오답 원인 진단 결과(`ErrorDiagnosis`)에 대응하여 복구를 위해 필요한 학습 포인트를 힌트로 제공합니다.
     - 리포트는 `counterexample_report` 필드에 저장됩니다.
 
+### 3.20 Submission Review Service (비동기 통합 서비스)
+*   **임포트 경로**:
+    ```python
+    from agent import review_submission_package, review_submission_package_sync, review_package_to_dict
+    ```
+*   **상세 설명**:
+    - 백엔드(FastAPI)가 개별 노드/워크플로우를 수동 조립하지 않고, `await` 한 번으로 에이전트 제출 검토 결과를 일괄 취합할 수 있는 통합 API 서비스 레이어입니다.
+    - RAG 개념 검색을 비동기 스레드 풀 (`asyncio.to_thread`)을 이용해 오프라인 백그라운드로 안전하게 수행하며, 실패 시 빈 리스트로 자동 폴백 처리됩니다.
+*   **FastAPI 연동 예시**:
+    ```python
+    from fastapi import APIRouter
+    from agent import review_submission_package, review_package_to_dict
+    
+    router = APIRouter()
+    
+    @router.post("/api/problems/review")
+    async def review_problem(problem_data, run_results):
+        review = await review_submission_package(
+            problem=problem_data,
+            submission_result=run_results.submission_result,
+            testcase_results=run_results.testcases
+        )
+        return review_package_to_dict(review)
+    ```
+
 ### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
     - 본 컴포넌트는 사용자의 코드를 실제로 가상 머신이나 도커 내에서 빌드/실행하지 않는 안전한 순수 데이터 어댑터입니다. 외부 채점 엔진에 의해 측정 완료된 원시 실행 명세(`TestcaseRunResult`)를 전달받아 통계화하기만 합니다.
@@ -531,6 +556,22 @@
     - `explanation` (str): 반례 상황에 대한 한국어 요약 설명.
     - `lesson` (Optional[str]): 오답 분석에 대응하는 정정 팁 텍스트.
     - `safe_to_show` (bool): 코드 노출 등에 대비한 안전 필터링 상태.
+
+### 4.17 SubmissionReviewPackage
+*   **목적**: 백엔드 전달용 전체 피드백 및 노드 보고서 취합 모델.
+*   **핵심 필드**:
+    - `problem_id` (str): 문제 식별자.
+    - `result_type` (str): 최종 채점 판정 상태.
+    - `evaluation_report` (Optional[SubmissionEvaluationReport]): 상세 테스트케이스 패스 통계.
+    - `error_diagnosis` (Optional[ErrorDiagnosis]): 정밀 원인 진단서.
+    - `failed_case_explanation` (Optional[FailedCaseExplanation]): 국문 설명서.
+    - `complexity_analysis` (Optional[ComplexityAnalysis]): 효율성 검사서.
+    - `counterexample_report` (Optional[CounterexampleReport]): 반례 안내서.
+    - `feedback_report` (Optional[FeedbackReport]): 최종 렌더링용 피드백 요약서.
+    - `routing_decision` (Optional[RoutingDecision]): 분기 결정권자.
+    - `concept_context` (List[str]): RAG에 의해 검색된 지식 참고 항목 리스트.
+    - `summary` (str): 최종 요약 안내 문구.
+    - `safe_to_show` (bool): 안전 필터 누적 합산값.
 
 ---
 
