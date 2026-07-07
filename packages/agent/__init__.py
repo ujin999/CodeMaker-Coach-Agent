@@ -13,6 +13,8 @@ from agent.schemas import (
     RoutingDecision,
     TestcaseRunResult,
     SubmissionEvaluationReport,
+    ErrorDiagnosis,
+    FailedCaseExplanation,
 )
 
 __all__ = [
@@ -30,4 +32,6 @@ __all__ = [
     "RoutingDecision",
     "TestcaseRunResult",
     "SubmissionEvaluationReport",
+    "ErrorDiagnosis",
+    "FailedCaseExplanation",
 ]

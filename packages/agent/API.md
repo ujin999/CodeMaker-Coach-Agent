@@ -304,9 +304,26 @@
     ) -> AgentState:
     ```
 *   **상세 설명**:
-    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
+    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 오답 원인 진단 -> 실패 케이스 세부 분석 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
 
-### 3.15 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
+### 3.15 diagnose_submission_node
+*   **임포트 경로**:
+    ```python
+    from agent.nodes import diagnose_submission_node
+    ```
+*   **상세 설명**:
+    - `AgentState` 내의 `generated_problem`과 `submission_result`를 기반으로 오답 원인 또는 컴파일/런타임/시간초과 예외 패턴을 감지하여 `ErrorDiagnosis` 리포트를 작성합니다.
+    - 예: 이분 탐색(예산 상한액) 문제에서 정답과의 오차가 1인 경우 `WA_OFF_BY_ONE` 상태를 감지합니다.
+
+### 3.16 explain_failed_case_node
+*   **임포트 경로**:
+    ```python
+    from agent.nodes import explain_failed_case_node
+    ```
+*   **상세 설명**:
+    - 오답 원인 진단 결과를 결합하여, 실패한 테스트케이스의 세부 정보(입력 프리뷰, 기대값 대 실제값 대비)와 구체적으로 보완해야 할 논리적 공백(`likely_gap`)을 한국어로 요약하는 `FailedCaseExplanation` 리포트를 생성합니다.
+
+### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
     - 본 컴포넌트는 사용자의 코드를 실제로 가상 머신이나 도커 내에서 빌드/실행하지 않는 안전한 순수 데이터 어댑터입니다. 외부 채점 엔진에 의해 측정 완료된 원시 실행 명세(`TestcaseRunResult`)를 전달받아 통계화하기만 합니다.
 *   **출력 문자열의 일관된 비교 (Whitespace and Line-ending Normalization)**:
@@ -450,6 +467,26 @@
     - `passed_count` (int): 정답(`AC`) 판정을 받은 테스트케이스 수.
     - `first_failed_testcase_name` (Optional[str]): 최초로 실패한 테스트케이스 이름.
     - `summary` (str): 집계 결과를 설명하는 한글 안내 메시지.
+
+### 4.13 ErrorDiagnosis
+*   **목적**: 제출 결과의 구체적인 오류 원인 분석 명세.
+*   **핵심 필드**:
+    - `problem_id` (str): 대상 문제 식별 번호.
+    - `result_type` (str): 채점 판정 코드.
+    - `primary_cause` (str): 구체적인 진단 원인 태그 (예: `WA_OFF_BY_ONE`, `RE_INDEX_ERROR` 등).
+    - `evidence` (List[str]): 오답의 판단 근거.
+    - `related_concepts` (List[str]): 관련된 알고리즘 개념 태그.
+    - `suggested_focus` (List[str]): 개선 가이드 요점.
+
+### 4.14 FailedCaseExplanation
+*   **목적**: 실패한 특정 테스트케이스에 대한 분석 및 학습적 조언 리포트.
+*   **핵심 필드**:
+    - `problem_id` (str): 문제 번호.
+    - `testcase_name` (Optional[str]): 실패한 케이스의 명칭.
+    - `summary` (str): 실패 요약 설명.
+    - `input_observation` (Optional[str]): 입력값에 대한 프리뷰.
+    - `expected_vs_actual` (Optional[str]): 기대 출력 대 실제 출력 비교값.
+    - `likely_gap` (Optional[str]): 학습자가 스스로 보강해야 할 논리적 결함에 대한 한국어 힌트.
 
 ---
 
