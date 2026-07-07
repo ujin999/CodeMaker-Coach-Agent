@@ -89,3 +89,86 @@ def test_api_generate_problem_omitted_defaults():
     assert body["id"] == f"stub-{algo}-001"
     assert body["difficulty"] == "easy"  # Default value
     assert body["learning_goal"] == "기본 로직 이해"  # Default stub value
+
+
+def test_reveal_solution_requires_confirm_and_is_gated():
+    """Verify reveal-solution requires confirm=true and returns the stub reference code once confirmed."""
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+
+    algo = _unique_algorithm("reveal_check")
+    gen_resp = client.post(
+        "/api/problems/generate", json={"algorithm": algo}, headers=headers
+    )
+    assert gen_resp.status_code == 201
+    problem_id = gen_resp.json()["id"]
+
+    # confirm=false must be rejected
+    rejected = client.post(
+        f"/api/problems/{problem_id}/reveal-solution",
+        json={"confirm": False},
+        headers=headers,
+    )
+    assert rejected.status_code == 400
+
+    # confirm=true reveals the code
+    revealed = client.post(
+        f"/api/problems/{problem_id}/reveal-solution",
+        json={"confirm": True},
+        headers=headers,
+    )
+    assert revealed.status_code == 200
+    body = revealed.json()
+    assert body["problem_id"] == problem_id
+    assert body["language"] == "python"
+    assert len(body["code"]) > 0
+
+    # the general problem detail endpoint must never include the solution
+    detail = client.get(f"/api/problems/{problem_id}", headers=headers)
+    assert "reference_solution" not in detail.json()
+    assert "code" not in detail.json()
+
+
+def test_reveal_solution_unknown_problem_returns_404():
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+
+    resp = client.post(
+        "/api/problems/does-not-exist/reveal-solution",
+        json={"confirm": True},
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_report_problem():
+    """Verify a problem can be reported and unknown problems 404."""
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+
+    algo = _unique_algorithm("report_check")
+    gen_resp = client.post(
+        "/api/problems/generate", json={"algorithm": algo}, headers=headers
+    )
+    assert gen_resp.status_code == 201
+    problem_id = gen_resp.json()["id"]
+
+    resp = client.post(
+        f"/api/problems/{problem_id}/report",
+        json={"reason": "예제 출력이 설명과 맞지 않습니다."},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["problem_id"] == problem_id
+    assert body["reason"] == "예제 출력이 설명과 맞지 않습니다."
+
+    missing = client.post(
+        "/api/problems/does-not-exist/report",
+        json={"reason": "test"},
+        headers=headers,
+    )
+    assert missing.status_code == 404

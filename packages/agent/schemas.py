@@ -305,6 +305,20 @@ class SubmissionEvaluationReport(BaseModel):
         return self
 
 
+class ReferenceSolution(BaseModel):
+    """내부 정답 코드 — 절대 힌트/일반 API 응답으로 노출하지 않는다 (FR-20, 정책 1).
+
+    문제와 동일한 결정론적 solver 로직으로 생성되며, Judge0에서 testcase_bundle에
+    대해 실행 검증한 뒤 verified 플래그가 채워진다.
+    """
+    problem_id: str
+    language: str = "python"
+    code: str
+    generator_name: str
+    verified: bool = False
+    verification_notes: str = ""
+
+
 class ErrorDiagnosis(BaseModel):
     problem_id: str
     result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
@@ -316,7 +330,7 @@ class ErrorDiagnosis(BaseModel):
     safe_to_show: bool = True
 
     @model_validator(mode="after")
-    def validate_safety_policy(self) -> 'ErrorDiagnosis':
+    def validate_safety_policy(self) -> "ErrorDiagnosis":
         unsafe = False
         kws = [
             "def ",
@@ -325,7 +339,7 @@ class ErrorDiagnosis(BaseModel):
             "main(",
             "public static void main",
             "class solution",
-            "return "
+            "return ",
         ]
         placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
         for field in [self.primary_cause] + self.evidence + self.suggested_focus:
@@ -351,7 +365,7 @@ class FailedCaseExplanation(BaseModel):
     safe_to_show: bool = True
 
     @model_validator(mode="after")
-    def validate_safety_policy(self) -> 'FailedCaseExplanation':
+    def validate_safety_policy(self) -> "FailedCaseExplanation":
         if not self.summary or not self.summary.strip():
             raise ValueError("summary must be non-empty.")
         unsafe = False
@@ -362,10 +376,15 @@ class FailedCaseExplanation(BaseModel):
             "main(",
             "public static void main",
             "class solution",
-            "return "
+            "return ",
         ]
         placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
-        for field in [self.summary, self.input_observation, self.expected_vs_actual, self.likely_gap]:
+        for field in [
+            self.summary,
+            self.input_observation,
+            self.expected_vs_actual,
+            self.likely_gap,
+        ]:
             if not field:
                 continue
             field_lower = field.lower()

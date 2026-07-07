@@ -163,12 +163,14 @@ class LiveAgentGateway:
         problem = state.get("generated_problem")
         testcases = state.get("testcase_bundle")
         hints = state.get("hint_bundle")
+        reference_solution = state.get("reference_solution")
         report = state.get("validation_report")
         decision = state.get("routing_decision")
 
         prob_dict = problem.model_dump() if problem else {}
         tc_dict = testcases.model_dump() if testcases else None
         hint_dict = hints.model_dump() if hints else None
+        ref_dict = reference_solution.model_dump() if reference_solution else None
         rep_dict = report.model_dump() if report else None
         dec_dict = decision.model_dump() if decision else None
 
@@ -176,6 +178,7 @@ class LiveAgentGateway:
             generated_problem=prob_dict,
             testcase_bundle=tc_dict,
             hint_bundle=hint_dict,
+            reference_solution=ref_dict,
             validation_report=rep_dict,
             routing_decision=dec_dict,
             gateway_mode="live"
@@ -340,6 +343,14 @@ class StubAgentGateway:
             "generator_name": "stub_generator",
             "verification_status": "passed"
         }
+        reference_solution = {
+            "problem_id": f"stub-{algo}-001",
+            "language": "python",
+            "code": "# STUB reference solution\nprint(0, 1)",
+            "generator_name": "stub_generator",
+            "verified": True,
+            "verification_notes": "STUB: 검증 생략",
+        }
         validation_report = {
             "passed": True,
             "issues": [],
@@ -357,6 +368,7 @@ class StubAgentGateway:
             generated_problem=generated_problem,
             testcase_bundle=testcase_bundle,
             hint_bundle=None,
+            reference_solution=reference_solution,
             validation_report=validation_report,
             routing_decision=routing_decision,
             gateway_mode="stub"

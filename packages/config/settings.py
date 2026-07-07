@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # ── Database ──────────────────────────────────
     database_url: str = "postgresql://postgres:postgres@localhost:5432/codemaker"
 
+    # ── 인증 (JWT) ────────────────────────────────
+    # 시크릿은 반드시 .env로 설정한다. 코드에 기본값을 두지 않는다 (NFR-3).
+    jwt_secret_key: str = ""
+    jwt_expire_minutes: int = 60
+
     # ── Judge0 (채점) ─────────────────────────────
     judge0_url: str = "http://localhost:2358"
     judge0_auth_token: str = ""

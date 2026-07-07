@@ -1,12 +1,11 @@
 """JWT 인증 유틸 — 토큰 발급·검증, 비밀번호 해시.
 
 passlib 대신 bcrypt 라이브러리를 직접 사용한다.
-환경변수 JWT_SECRET_KEY 가 없으면 개발용 기본값을 사용한다 (운영에서는 반드시 교체).
+시크릿은 코드에 하드코딩하지 않고 반드시 config.settings(.env의 JWT_SECRET_KEY)로 관리한다 (NFR-3).
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -14,10 +13,17 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
+from config.settings import settings
+
 # ── 설정 ────────────────────────────────────────────────────────────────────
-_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_IN_PRODUCTION_USE_STRONG_KEY")
+if not settings.jwt_secret_key:
+    raise RuntimeError(
+        "JWT_SECRET_KEY가 설정되지 않았습니다. .env에 안전한 랜덤 값을 설정하세요 "
+        '(예: python -c "import secrets; print(secrets.token_urlsafe(64))").'
+    )
+_SECRET_KEY = settings.jwt_secret_key
 _ALGORITHM = "HS256"
-_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+_ACCESS_TOKEN_EXPIRE_MINUTES = settings.jwt_expire_minutes
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
