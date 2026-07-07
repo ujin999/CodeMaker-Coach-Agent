@@ -1,0 +1,14 @@
+# apps/api Dockerfile의 빌드 컨텍스트(리포지토리 루트)에서 제외할 항목.
+.git
+.venv
+apps/web
+docs
+tests
+.pytest_cache
+.mypy_cache
+.ruff_cache
+**/__pycache__
+**/*.pyc
+.env
+.env.local
+*.log

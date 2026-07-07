@@ -1,8 +1,13 @@
-# CodeMaker Coach Agent — 로컬 인프라
-# 실행: docker compose -f infra/docker-compose.yml up -d
+# CodeMaker Coach Agent — 인프라 + 앱 전체 스택
+#
+# 실행 (리포지토리 루트에서, .env가 있어야 함):
+#   docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+#
+# 인프라만 (앱은 로컬에서 직접 실행하며 개발할 때):
+#   docker compose -f infra/docker-compose.yml up -d postgres qdrant
 #
 # 네트워크 분리 (NFR-2): 앱 서비스(app-net)와 Judge0 샌드박스(judge0-net)를 분리한다.
-# API는 호스트 포트로 Judge0(2358)에 접근한다.
+# API는 호스트 포트로 Judge0(2358)에 접근한다 (컨테이너에서는 host.docker.internal 경유).
 
 # compose 프로젝트 이름 → 컨테이너가 codemaker-<서비스>-1 로 묶인다.
 name: codemaker
@@ -39,6 +44,43 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks: [app-net]
+
+  # ── 백엔드 API (FastAPI) ────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      # 컨테이너 네트워크 상의 실제 주소로 강제 오버라이드 (.env 값 무관하게 항상 맞물리게 함).
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/codemaker
+      QDRANT_URL: http://qdrant:6333
+      # judge0-net은 격리되어 있으므로 호스트에 열린 포트로 되돌아 나간다 (NFR-2).
+      JUDGE0_URL: http://host.docker.internal:2358
+      API_PORT: "10000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "10000:10000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    networks: [app-net]
+
+  # ── 프론트엔드 (Next.js) ────────────────────────
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:10000}
+    ports:
+      - "10001:3000"
+    depends_on: [api]
     networks: [app-net]
 
   # ── Judge0 채점 스택 (server / workers / db / redis) ──

@@ -13,6 +13,7 @@ from app.routers.problems import router as problems_router
 from app.routers.submissions import router as submissions_router
 from app.routers.hints import router as hints_router
 from app.routers.community import router as community_router
+from config.settings import settings
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,10 +23,10 @@ app = FastAPI(
     description="LLM 기반 코딩테스트 문제 생성·채점·힌트 학습 플랫폼 API",
 )
 
-# CORS — 개발용 (운영에서는 실제 도메인으로 교체)
+# CORS — 허용 origin은 .env의 CORS_ORIGINS(콤마 구분)로 배포 환경마다 설정한다.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
