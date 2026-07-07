@@ -4,6 +4,9 @@
 # 네트워크 분리 (NFR-2): 앱 서비스(app-net)와 Judge0 샌드박스(judge0-net)를 분리한다.
 # API는 호스트 포트로 Judge0(2358)에 접근한다.
 
+# compose 프로젝트 이름 → 컨테이너가 codemaker-<서비스>-1 로 묶인다.
+name: codemaker
+
 services:
   # ── 앱 관계형 DB ───────────────────────────────
   postgres:
