@@ -44,12 +44,6 @@ def generate_hints(
             continue
         if hint.level > allowed_level:
             continue
-            
-        # Ensure skeleton codes contain placeholders
-        if hint.code_skeleton:
-            placeholders = ["...", "TODO", "pass", "here", "fill", "구현", "빈칸"]
-            if not any(p in hint.code_skeleton.lower() for p in placeholders):
-                raise ValueError("code_skeleton must contain placeholders to be incomplete")
         filtered_hints.append(hint)
         
     result.hints = filtered_hints

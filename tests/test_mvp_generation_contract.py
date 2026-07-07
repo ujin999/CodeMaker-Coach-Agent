@@ -39,7 +39,7 @@ def test_problem_generation_contract():
 
 
 def test_testcase_generation_contract():
-    """Verify that generate_testcases returns a valid TestcaseBundle with sample case."""
+    """Verify that generate_testcases returns a valid TestcaseBundle with sample case using LLM fallback."""
     # Build a dummy GeneratedProblem for the function input
     input_data = ProblemGenerationInput(
         algorithm="bfs",
@@ -47,13 +47,32 @@ def test_testcase_generation_contract():
     )
     problem = generate_problem(input_data)
     
-    bundle = generate_testcases(problem)
+    bundle = generate_testcases(problem, allow_experimental_llm_fallback=True)
     
     assert isinstance(bundle, TestcaseBundle)
     assert bundle.problem_id == problem.problem_id
     assert len(bundle.testcases) >= 1
     # Check that it contains at least one sample testcase
     assert any(tc.visibility == "sample" for tc in bundle.testcases)
+
+
+def test_testcase_generation_deterministic_contract():
+    """Verify that generate_testcases returns a valid TestcaseBundle for budget cap via deterministic path."""
+    input_data = ProblemGenerationInput(
+        algorithm="binary_search",
+        difficulty="easy"
+    )
+    problem = generate_problem(input_data)
+    # Force statement/algorithm to match budget cap deterministic rules
+    problem.statement = "상한액 C min(요청 예산, C)"
+    problem.algorithm = ["binary_search"]
+    
+    bundle = generate_testcases(problem)
+    assert isinstance(bundle, TestcaseBundle)
+    assert bundle.generation_mode == "deterministic"
+    assert bundle.generator_name == "budget_cap"
+    assert len(bundle.testcases) >= 5
+
 
 
 def test_hint_generation_contract():

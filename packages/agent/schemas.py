@@ -47,6 +47,7 @@ class GeneratedTestcase(BaseModel):
     """Schema for individual generated testcase."""
     name: str = Field(description="Testcase name / label")
     input_data: str = Field(description="String input matching the input format")
+    calculation_steps: Optional[str] = Field(default=None, description="Step-by-step mathematical verification for expected_output")
     expected_output: str = Field(description="Expected output string")
     visibility: Literal["sample", "hidden", "edge"] = Field(description="Visibility category")
     purpose: str = Field(description="Explanation of what this case tests")
@@ -60,6 +61,9 @@ class TestcaseBundle(BaseModel):
 
     testcases: List[GeneratedTestcase]
     generation_notes: str
+    generation_mode: Optional[str] = Field(default=None, description="Testcase generation mode, e.g. deterministic or llm")
+    generator_name: Optional[str] = Field(default=None, description="The name of the generator used")
+    verification_status: Optional[str] = Field(default=None, description="Status of the validation verification")
 
     @model_validator(mode="after")
     def validate_testcases(self) -> 'TestcaseBundle':
@@ -98,11 +102,12 @@ class Hint(BaseModel):
     @classmethod
     def validate_content_no_full_code(cls, v: str) -> str:
         # Check for full Python function implementation without placeholders
-        if "def " in v and ":" in v and ("return" in v or "print" in v) and "TODO" not in v and "..." not in v and "pass" not in v:
+        v_lower = v.lower()
+        if "def " in v and ":" in v and ("return" in v or "print" in v) and "todo" not in v_lower and "..." not in v_lower and "pass" not in v_lower:
             raise ValueError("Obvious full solution code detected in hint content.")
         
         # Check for full C++ main program
-        if "#include" in v and "main(" in v and "TODO" not in v and "..." not in v:
+        if "#include" in v and "main(" in v and "todo" not in v_lower and "..." not in v_lower:
             raise ValueError("Obvious full solution code detected in hint content.")
             
         return v
@@ -112,7 +117,7 @@ class Hint(BaseModel):
     def validate_skeleton_incomplete(cls, v: Optional[str]) -> Optional[str]:
         if v is not None:
             # Check that code skeleton contains incomplete placeholders
-            placeholders = ["...", "TODO", "pass", "here", "fill", "구현", "빈칸"]
+            placeholders = ["...", "todo", "pass", "here", "fill", "구현", "빈칸", "할 일", "작성", "코드"]
             if not any(p in v.lower() for p in placeholders):
                 raise ValueError("code_skeleton must be incomplete (include '...', 'TODO', or similar placeholders)")
         return v
@@ -123,3 +128,178 @@ class HintBundle(BaseModel):
     problem_id: str
     blueprint: HintBlueprint
     hints: List[Hint]
+
+
+class ValidationIssue(BaseModel):
+    severity: Literal["error", "warning", "info"]
+    code: str
+    message: str
+    location: Optional[str] = None
+
+
+class ValidationReport(BaseModel):
+    passed: bool
+    issues: List[ValidationIssue] = Field(default_factory=list)
+    checked_sections: List[str] = Field(default_factory=list)
+    summary: str = ""
+
+    @model_validator(mode="after")
+    def enforce_passed_invariance(self) -> 'ValidationReport':
+        has_error = any(issue.severity == "error" for issue in self.issues)
+        if has_error:
+            self.passed = False
+        return self
+
+
+class SubmissionResult(BaseModel):
+    problem_id: str
+    result_type: Literal[
+        "AC",
+        "WA",
+        "TLE",
+        "RE",
+        "MLE",
+        "CE",
+        "PE",
+        "UNKNOWN",
+    ]
+    user_code: Optional[str] = None
+    language: Optional[str] = None
+    failed_testcase_name: Optional[str] = None
+    failed_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    stderr: Optional[str] = None
+    execution_time_ms: Optional[int] = None
+    memory_kb: Optional[int] = None
+
+
+class FeedbackReport(BaseModel):
+    problem_id: str
+    result_type: str
+    summary: str
+    likely_causes: List[str] = Field(default_factory=list)
+    next_steps: List[str] = Field(default_factory=list)
+    allowed_hint_level: int = 1
+    safe_to_show: bool = True
+    generated_by: Literal["deterministic", "llm"] = "deterministic"
+
+    @field_validator("allowed_hint_level")
+    @classmethod
+    def validate_allowed_hint_level(cls, v: int) -> int:
+        if v not in [1, 2, 3]:
+            raise ValueError("allowed_hint_level must be 1, 2, or 3")
+        return v
+
+    @model_validator(mode="after")
+    def validate_safety_policy(self) -> 'FeedbackReport':
+        # Simple conservative checker for full solution code in summary, likely_causes, or next_steps
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return "
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        for field in [self.summary] + self.likely_causes + self.next_steps:
+            if not field:
+                continue
+            field_lower = field.lower()
+            if any(kw in field_lower for kw in kws):
+                if not any(ph in field_lower for ph in placeholders):
+                    unsafe = True
+                    break
+        if unsafe:
+            self.safe_to_show = False
+        return self
+
+
+class RoutingDecision(BaseModel):
+    action: Literal[
+        "present_to_user",
+        "regenerate_problem",
+        "regenerate_testcases",
+        "revise_hints",
+        "request_human_review",
+        "show_feedback",
+        "block_output",
+    ]
+    reason: str
+    confidence: Literal["low", "medium", "high"] = "medium"
+    blocking_issue_codes: List[str] = Field(default_factory=list)
+    safe_to_continue: bool = True
+
+    @model_validator(mode="after")
+    def validate_routing_rules(self) -> 'RoutingDecision':
+        if self.action == "block_output" and self.safe_to_continue:
+            raise ValueError("safe_to_continue must be False when action is block_output.")
+        if self.blocking_issue_codes and self.action == "present_to_user":
+            raise ValueError("Cannot present to user when blocking issue codes exist.")
+        if not self.reason or not self.reason.strip():
+            raise ValueError("Reason must be non-empty.")
+        return self
+
+
+class TestcaseRunResult(BaseModel):
+    __test__ = False
+    testcase_name: str
+    status: Literal[
+        "AC",
+        "WA",
+        "TLE",
+        "RE",
+        "MLE",
+        "CE",
+        "PE",
+        "UNKNOWN",
+    ] = "UNKNOWN"
+    input_data: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    stderr: Optional[str] = None
+    execution_time_ms: Optional[int] = None
+    memory_kb: Optional[int] = None
+
+
+class SubmissionEvaluationReport(BaseModel):
+    problem_id: str
+    result_type: Literal[
+        "AC",
+        "WA",
+        "TLE",
+        "RE",
+        "MLE",
+        "CE",
+        "PE",
+        "UNKNOWN",
+    ]
+    testcase_results: List[TestcaseRunResult] = Field(default_factory=list)
+    total_count: int = 0
+    passed_count: int = 0
+    first_failed_testcase_name: Optional[str] = None
+    failed_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    stderr: Optional[str] = None
+    max_execution_time_ms: Optional[int] = None
+    max_memory_kb: Optional[int] = None
+    summary: str = ""
+
+    @model_validator(mode="after")
+    def validate_evaluation_invariants(self) -> 'SubmissionEvaluationReport':
+        expected_total = len(self.testcase_results)
+        if self.total_count != expected_total:
+            self.total_count = expected_total
+
+        if not (0 <= self.passed_count <= self.total_count):
+            raise ValueError(f"passed_count must be between 0 and total_count ({self.total_count})")
+
+        all_ac = all(res.status == "AC" for res in self.testcase_results)
+        if self.result_type == "AC" and not all_ac and self.testcase_results:
+            raise ValueError("result_type cannot be AC if not all testcases have status AC")
+
+        return self

@@ -3,10 +3,42 @@ from agent.llm import get_chat_model, _is_test_env
 from agent.schemas import GeneratedProblem, TestcaseBundle
 from rag.retriever import search_concepts
 from agent.prompts.testcase_generation import build_testcase_generation_prompt
+from agent.testcase_generators import (
+    generate_deterministic_testcases,
+    UnsupportedTestcaseGeneratorError,
+)
 
 
-def generate_testcases(problem: GeneratedProblem, min_cases: int = 5) -> TestcaseBundle:
-    """Generates a suite of testcases (sample, hidden, and edge) for a given problem."""
+def generate_testcases(
+    problem: GeneratedProblem,
+    min_cases: int = 5,
+    allow_experimental_llm_fallback: bool = False,
+) -> TestcaseBundle:
+    """
+    Generates a suite of testcases (sample, hidden, and edge) for a given problem.
+    First attempts to use the deterministic testcase generation registry.
+    If no deterministic generator is found and allow_experimental_llm_fallback is True,
+    it falls back to experimental LLM-based generation.
+    """
+    try:
+        return generate_deterministic_testcases(problem, min_cases=min_cases)
+    except UnsupportedTestcaseGeneratorError:
+        if not allow_experimental_llm_fallback:
+            raise
+
+    # Fallback to the LLM path when explicitly permitted
+    return _generate_testcases_with_llm_experimental(problem, min_cases=min_cases)
+
+
+def _generate_testcases_with_llm_experimental(
+    problem: GeneratedProblem,
+    min_cases: int = 5,
+) -> TestcaseBundle:
+    """
+    [EXPERIMENTAL LLM FALLBACK PATH]
+    Generates testcases using LLM arithmetic and verification.
+    Warning: This path is unsafe, experimental, and is not considered reliable for correctness.
+    """
     # 1. Retrieve RAG testcase strategy and problem algorithm context
     query = "testcase strategy " + " ".join(problem.algorithm)
     strategy_docs = search_concepts(query, top_k=3)
@@ -29,6 +61,9 @@ def generate_testcases(problem: GeneratedProblem, min_cases: int = 5) -> Testcas
     )
     
     result = structured_model.invoke(prompt_messages)
+    result.generation_notes = f"[EXPERIMENTAL LLM FALLBACK] {result.generation_notes}"
+    result.generation_mode = "llm"
+    result.verification_status = "experimental"
     
     # Enforce constraints after generation
     # 1. Ensure at least one sample testcase exists
@@ -50,3 +85,5 @@ def generate_testcases(problem: GeneratedProblem, min_cases: int = 5) -> Testcas
                 )
                 
     return result
+
+

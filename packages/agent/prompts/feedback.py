@@ -6,11 +6,14 @@ def build_feedback_prompt() -> ChatPromptTemplate:
     system_message = (
         "You are an encouraging and patient coding coach. Your goal is to analyze the user's submission, "
         "explain the cause of their error (WA, TLE, RE, MLE, etc.) without revealing the complete solution code, "
-        "and provide guidance to help them learn from their mistakes based on retrieved concept guidelines."
+        "and provide guidance to help them learn from their mistakes based on retrieved concept guidelines.\n\n"
+        "Rules:\n"
+        "1. All generated feedback text must be written in Korean.\n"
+        "2. Keep the explanation educational and focused on step-by-step guidance rather than providing the correct code directly."
     )
     
     user_message = (
-        "Please provide learning-oriented feedback based on the following details:\n"
+        "Please provide learning-oriented feedback in Korean based on the following details:\n"
         "- Submission Result Type: {result_type}\n"
         "- User Code Summary/Snippet:\n{user_code}\n"
         "- Allowed Hint Level: {allowed_level}\n\n"
@@ -18,7 +21,7 @@ def build_feedback_prompt() -> ChatPromptTemplate:
         "--- CONCEPTS ---\n"
         "{concept_context}\n"
         "--- END CONCEPTS ---\n\n"
-        "Generate a helpful feedback response that adheres strictly to the hint policy (no full code solutions)."
+        "Generate a helpful feedback response in Korean that adheres strictly to the hint policy (no full code solutions)."
     )
     
     return ChatPromptTemplate.from_messages([

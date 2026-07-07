@@ -1,7 +1,19 @@
 from agent.chains.problem_generation import generate_problem
 from agent.chains.testcase_generation import generate_testcases
 from agent.chains.hint_generation import generate_hints
-from agent.schemas import ProblemGenerationInput, GeneratedProblem, TestcaseBundle, HintBundle
+from agent.schemas import (
+    ProblemGenerationInput,
+    GeneratedProblem,
+    TestcaseBundle,
+    HintBundle,
+    ValidationIssue,
+    ValidationReport,
+    SubmissionResult,
+    FeedbackReport,
+    RoutingDecision,
+    TestcaseRunResult,
+    SubmissionEvaluationReport,
+)
 
 __all__ = [
     "generate_problem",
@@ -11,4 +23,11 @@ __all__ = [
     "GeneratedProblem",
     "TestcaseBundle",
     "HintBundle",
+    "ValidationIssue",
+    "ValidationReport",
+    "SubmissionResult",
+    "FeedbackReport",
+    "RoutingDecision",
+    "TestcaseRunResult",
+    "SubmissionEvaluationReport",
 ]

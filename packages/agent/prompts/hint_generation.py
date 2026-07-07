@@ -12,7 +12,12 @@ def build_hint_generation_prompt() -> ChatPromptTemplate:
         "3. Level 2: Explain the core algorithm choice and approach.\n"
         "4. Level 3: Give implementation details, edge checks, or a partial code skeleton (incomplete, containing placeholders like '...').\n"
         "5. Output must conform to the requested JSON schema for HintBundle.\n"
-        "6. CRITICAL SCHEMA REQUIREMENT: The 'code_skeleton' field in any Hint MUST be incomplete and MUST contain at least one of these exact placeholders: '...', '# TODO', or 'pass'. Do not output complete, working functions."
+        "6. CRITICAL SCHEMA REQUIREMENT: The 'code_skeleton' field in any Hint MUST be incomplete and MUST contain at least one of these exact placeholders: '...', '# TODO', or 'pass'. Do not output complete, working functions.\n"
+        "7. CRITICAL: All user-facing output text must be written in Korean. "
+        "JSON keys must remain in English. "
+        "Hint title and hint content must be in Korean. "
+        "Any comments inside the code_skeleton (e.g., # TODO: write here) must be written in Korean. "
+        "The coding syntax itself must match the requested programming language."
     )
     
     user_message = (
@@ -26,7 +31,7 @@ def build_hint_generation_prompt() -> ChatPromptTemplate:
         "--- END CONCEPT CONTEXT ---\n\n"
         "User Situation: {user_situation}\n"
         "Current Allowed Hint Level: {allowed_level}\n\n"
-        "Please generate a HintBundle containing staged hints up to level {allowed_level} based on the blueprint guidelines.\n"
+        "Please generate a HintBundle containing staged hints up to level {allowed_level} based on the blueprint guidelines in Korean.\n"
         "Ensure that any 'code_skeleton' field in your response is strictly incomplete and includes placeholders like '...' or '# TODO'."
     )
     
