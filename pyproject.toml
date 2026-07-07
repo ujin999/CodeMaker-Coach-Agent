@@ -21,6 +21,11 @@ dependencies = [
     "pydantic-settings>=2",
     "sqlalchemy>=2",
     "alembic>=1.13",
+    "psycopg2-binary>=2.9",
+    # 인증
+    "bcrypt>=4.0",
+    "python-jose[cryptography]>=3.3",
+    "email-validator>=2.0",
 ]
 
 [project.optional-dependencies]
