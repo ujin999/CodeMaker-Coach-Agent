@@ -473,3 +473,58 @@ class CounterexampleReport(BaseModel):
         if unsafe:
             self.safe_to_show = False
         return self
+
+
+class SubmissionReviewPackage(BaseModel):
+    problem_id: str
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    evaluation_report: Optional[SubmissionEvaluationReport] = None
+    error_diagnosis: Optional[ErrorDiagnosis] = None
+    failed_case_explanation: Optional[FailedCaseExplanation] = None
+    complexity_analysis: Optional[ComplexityAnalysis] = None
+    counterexample_report: Optional[CounterexampleReport] = None
+    feedback_report: Optional[FeedbackReport] = None
+    routing_decision: Optional[RoutingDecision] = None
+    concept_context: List[str] = Field(default_factory=list)
+    summary: str = ""
+    safe_to_show: bool = True
+
+    @model_validator(mode="after")
+    def validate_package_safety(self) -> "SubmissionReviewPackage":
+        reports = [
+            self.evaluation_report,
+            self.error_diagnosis,
+            self.failed_case_explanation,
+            self.complexity_analysis,
+            self.counterexample_report,
+            self.feedback_report,
+            self.routing_decision,
+        ]
+        for r in reports:
+            if r is not None and hasattr(r, "safe_to_show") and not r.safe_to_show:
+                self.safe_to_show = False
+                break
+
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return ",
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        if self.summary:
+            summary_lower = self.summary.lower()
+            if any(kw in summary_lower for kw in kws):
+                if not any(ph in summary_lower for ph in placeholders):
+                    unsafe = True
+        if unsafe:
+            self.safe_to_show = False
+
+        if not self.summary or not self.summary.strip():
+            raise ValueError("summary must be non-empty.")
+
+        return self

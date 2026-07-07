@@ -18,6 +18,13 @@ from agent.schemas import (
     ReferenceSolution,
     ComplexityAnalysis,
     CounterexampleReport,
+    SubmissionReviewPackage,
+)
+
+from agent.services import (
+    review_submission_package,
+    review_submission_package_sync,
+    review_package_to_dict,
 )
 
 __all__ = [
@@ -40,4 +47,8 @@ __all__ = [
     "ReferenceSolution",
     "ComplexityAnalysis",
     "CounterexampleReport",
+    "SubmissionReviewPackage",
+    "review_submission_package",
+    "review_submission_package_sync",
+    "review_package_to_dict",
 ]
