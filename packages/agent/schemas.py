@@ -395,3 +395,41 @@ class FailedCaseExplanation(BaseModel):
         if unsafe:
             self.safe_to_show = False
         return self
+
+
+class ComplexityAnalysis(BaseModel):
+    problem_id: str
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    expected_time_complexity: Optional[str] = None
+    observed_pattern: Optional[str] = None
+    suspected_complexity: Optional[str] = None
+    risk_level: Literal["low", "medium", "high"] = "medium"
+    evidence: List[str] = Field(default_factory=list)
+    related_concepts: List[str] = Field(default_factory=list)
+    suggested_actions: List[str] = Field(default_factory=list)
+    safe_to_show: bool = True
+
+    @model_validator(mode="after")
+    def validate_safety_policy(self) -> "ComplexityAnalysis":
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return ",
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        for field in self.evidence + self.suggested_actions:
+            if not field:
+                continue
+            field_lower = field.lower()
+            if any(kw in field_lower for kw in kws):
+                if not any(ph in field_lower for ph in placeholders):
+                    unsafe = True
+                    break
+        if unsafe:
+            self.safe_to_show = False
+        return self

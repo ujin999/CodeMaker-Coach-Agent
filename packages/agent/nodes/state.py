@@ -13,6 +13,7 @@ from agent.schemas import (
     SubmissionEvaluationReport,
     ErrorDiagnosis,
     FailedCaseExplanation,
+    ComplexityAnalysis,
 )
 
 
@@ -30,6 +31,7 @@ class AgentState(TypedDict, total=False):
     submission_evaluation_report: SubmissionEvaluationReport
     error_diagnosis: ErrorDiagnosis
     failed_case_explanation: FailedCaseExplanation
+    complexity_analysis: ComplexityAnalysis
     min_cases: int
     allowed_hint_level: int
     user_situation: Optional[str]

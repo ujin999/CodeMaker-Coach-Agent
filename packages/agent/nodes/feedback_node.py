@@ -209,6 +209,22 @@ def generate_feedback_node(state: AgentState) -> AgentState:
         else:
             report = report.validate_safety_policy()
 
+    complexity = state.get("complexity_analysis")
+    if complexity:
+        if complexity.evidence:
+            report.likely_causes = list(complexity.evidence) + list(report.likely_causes)
+        if complexity.suggested_actions:
+            report.next_steps = list(report.next_steps) + list(complexity.suggested_actions)
+        if submission.result_type == "TLE":
+            risk_msg = f"시간 복잡도 분석 결과 위험도가 {complexity.risk_level} 수준으로 감지되었습니다."
+            if complexity.suspected_complexity:
+                risk_msg += f" (의심 복잡도: {complexity.suspected_complexity})"
+            report.summary = f"{risk_msg} {report.summary}"
+        if not complexity.safe_to_show:
+            report.safe_to_show = False
+        else:
+            report = report.validate_safety_policy()
+
     new_state = state.copy()
     new_state["feedback_report"] = report
     return new_state

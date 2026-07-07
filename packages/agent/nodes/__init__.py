@@ -44,6 +44,11 @@ from agent.nodes.failed_case_explanation_node import (
     summarize_failed_case,
     explain_failed_case_node,
 )
+from agent.nodes.complexity_analysis_node import (
+    infer_code_pattern,
+    analyze_complexity,
+    analyze_complexity_node,
+)
 from agent.nodes.workflow import (
     run_package_workflow,
     run_feedback_workflow,
@@ -88,4 +93,7 @@ __all__ = [
     "diagnose_submission_node",
     "summarize_failed_case",
     "explain_failed_case_node",
+    "infer_code_pattern",
+    "analyze_complexity",
+    "analyze_complexity_node",
 ]

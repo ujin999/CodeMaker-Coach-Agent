@@ -304,7 +304,7 @@
     ) -> AgentState:
     ```
 *   **상세 설명**:
-    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 오답 원인 진단 -> 실패 케이스 세부 분석 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
+    - 외부 채점 엔진(예: Judge0)이 보낸 각 테스트케이스 개별 실행 결과를 받아 `평가 집계 -> 오답 원인 진단 -> 실패 케이스 세부 분석 -> 시간/공간 복잡도 분석 -> 피드백 생성 -> 라우팅 분기` 노드들을 순차 수행하는 제출 평가 전용 오케스트레이션 러너입니다.
 
 ### 3.15 diagnose_submission_node
 *   **임포트 경로**:
@@ -322,6 +322,15 @@
     ```
 *   **상세 설명**:
     - 오답 원인 진단 결과를 결합하여, 실패한 테스트케이스의 세부 정보(입력 프리뷰, 기대값 대 실제값 대비)와 구체적으로 보완해야 할 논리적 공백(`likely_gap`)을 한국어로 요약하는 `FailedCaseExplanation` 리포트를 생성합니다.
+
+### 3.18 analyze_complexity_node
+*   **임포트 경로**:
+    ```python
+    from agent.nodes import analyze_complexity_node
+    ```
+*   **상세 설명**:
+    - 학습자가 제출한 소스 코드를 실행하지 않고 텍스트 패턴 분석(중첩 루프, 내부 정렬, 재귀, BFS/DFS 자료구조 검색 등)을 거쳐 의심되는 시간/공간 복잡도를 평가하고 피드백을 수립하는 오프라인 분석 노드입니다.
+    - 분석된 결과는 `complexity_analysis` 필드에 `ComplexityAnalysis` 규격으로 저장됩니다.
 
 ### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
@@ -487,6 +496,18 @@
     - `input_observation` (Optional[str]): 입력값에 대한 프리뷰.
     - `expected_vs_actual` (Optional[str]): 기대 출력 대 실제 출력 비교값.
     - `likely_gap` (Optional[str]): 학습자가 스스로 보강해야 할 논리적 결함에 대한 한국어 힌트.
+
+### 4.15 ComplexityAnalysis
+*   **목적**: 오답 제출(특히 TLE)에 대해 의심 시간 복잡도와 위험 요소를 판단한 리포트 규격.
+*   **핵심 필드**:
+    - `problem_id` (str): 대상 문제 식별 번호.
+    - `result_type` (str): 제출 채점 결과.
+    - `expected_time_complexity` (Optional[str]): 문제 설계 기준 권장 시간 복잡도.
+    - `observed_pattern` (Optional[str]): 소스 코드 텍스트 분석을 통해 감지된 실행 패턴 명칭.
+    - `suspected_complexity` (Optional[str]): 패턴 매칭으로 유추되는 코드의 예상 복잡도.
+    - `risk_level` (Literal): 성능 위험 수준 (`low`, `medium`, `high`).
+    - `evidence` (List[str]): 복잡도를 예측한 상세 텍스트 근거 목록.
+    - `suggested_actions` (List[str]): 학습자의 성능 저하 복구를 위한 개선 제안 액션 리스트.
 
 ---
 
