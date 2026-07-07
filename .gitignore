@@ -13,6 +13,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+*.key
+*.secret
+
 
 # Node / 프론트엔드
 node_modules/
@@ -23,3 +26,7 @@ out/
 .DS_Store
 .idea/
 .vscode/
+
+# 기타 파일
+*.sh
+project_context.txt
