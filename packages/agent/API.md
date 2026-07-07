@@ -367,6 +367,38 @@
         return review_package_to_dict(review)
     ```
 
+### 3.21 Problem Generation Service (비동기 통합 서비스)
+*   **임포트 경로**:
+    ```python
+    from agent import (
+        generate_problem_package,
+        generate_problem_package_sync,
+        problem_package_to_public_dict,
+        problem_package_to_internal_dict,
+    )
+    ```
+*   **상세 설명**:
+    - 문제 생성, 테스트케이스 생성, 레퍼런스 솔루션 생성, 출력 검증, 그리고 힌트 묶음 생성을 비동기로 한 번에 처리하는 서비스 레이어입니다.
+    - `max_validation_attempts` 한도 내에서 검증에 통과할 때까지 자동으로 리트라이 루프를 수행합니다.
+    - 생성 결과에 알맞은 RAG 참고 개념들(`concept_context`)을 비동기 스레드 풀에서 자동으로 검색하여 병합합니다.
+    - `problem_package_to_public_dict` 사용 시, 정답 코드 누출 방지를 위해 `reference_solution` 필드가 자동으로 필터링 및 제외됩니다.
+
+### 3.22 Hint Request Service (비동기 통합 서비스)
+*   **임포트 경로**:
+    ```python
+    from agent import (
+        request_hint_package,
+        request_hint_package_sync,
+        hint_package_to_dict,
+        can_promote_hint_level,
+    )
+    ```
+*   **상세 설명**:
+    - 학습자의 현재 힌트 열람 허용 단계(`allowed_level`)를 기준으로 힌트 유효성을 검사하고 반환하는 가드 서비스 레이어입니다.
+    - 허용 단계를 초과하는 힌트를 요청하면 `blocked=True`와 함께 한국어 사유를 반환하며, 하위 단계의 힌트만 반환합니다.
+    - 생성된 힌트가 인자로 전달되지 않는 경우, RAG 힌트 색인(`codemaker_hints` 벡터 스토어)에서 `search_hints`를 비동기 호출하여 자동으로 반환합니다.
+    - `can_promote_hint_level` 헬퍼 함수를 제공해 DB 상태 변경 없이 동의 확인에 따른 힌트 승급 여부를 결정해 줍니다.
+
 ### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
     - 본 컴포넌트는 사용자의 코드를 실제로 가상 머신이나 도커 내에서 빌드/실행하지 않는 안전한 순수 데이터 어댑터입니다. 외부 채점 엔진에 의해 측정 완료된 원시 실행 명세(`TestcaseRunResult`)를 전달받아 통계화하기만 합니다.
@@ -572,6 +604,33 @@
     - `concept_context` (List[str]): RAG에 의해 검색된 지식 참고 항목 리스트.
     - `summary` (str): 최종 요약 안내 문구.
     - `safe_to_show` (bool): 안전 필터 누적 합산값.
+
+### 4.18 ProblemGenerationPackage
+*   **목적**: 비동기 문제 생성의 결과물들을 패키징하여 전달하는 최종 결과 모델.
+*   **핵심 필드**:
+    - `problem_id` (str): 문제 번호.
+    - `generated_problem` (GeneratedProblem): 생성된 문제 본문 정보.
+    - `testcase_bundle` (Optional[TestcaseBundle]): 채점용 테스트케이스 번들.
+    - `reference_solution` (Optional[ReferenceSolution]): 내부 정답 코드 솔루션 (Public 직렬화 시 제외됨).
+    - `validation_report` (Optional[ValidationReport]): 문제 자체 검증 보고서.
+    - `hint_bundle` (Optional[HintBundle]): 생성된 문제에 대응하는 힌트 목록.
+    - `concept_context` (List[str]): RAG를 통해 병합된 배경 지식 리스트.
+    - `summary` (str): 문제 생성 결과 한국어 요약 안내.
+    - `safe_to_show` (bool): 검증 여부 및 출력 안전 필터 통과 상태.
+
+### 4.19 HintRequestPackage
+*   **목적**: 힌트 요청 가드 검사를 필터링 완료한 제공용 힌트 패키지 규격.
+*   **핵심 필드**:
+    - `problem_id` (str): 대상 문제 번호.
+    - `allowed_level` (int): 학습자의 현재 조회 허용 단계 (1, 2, 3).
+    - `requested_level` (Optional[int]): 요청한 단계.
+    - `delivered_level` (int): 실제 제공되는 최고 단계.
+    - `hints` (List[Hint]): 노출 가능한 힌트 리스트.
+    - `blocked` (bool): 허용 범위 초과 차단 여부.
+    - `block_reason` (Optional[str]): 한글 거부 사유 문구.
+    - `source_refs` (List[str]): 힌트의 출처 및 단계 구분.
+    - `summary` (str): 힌트 제공 결과 한국어 안내.
+    - `safe_to_show` (bool): 뼈대 코드 이외의 정답 노출 방지 가드 상태.
 
 ---
 

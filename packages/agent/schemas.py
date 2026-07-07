@@ -528,3 +528,149 @@ class SubmissionReviewPackage(BaseModel):
             raise ValueError("summary must be non-empty.")
 
         return self
+
+
+class ProblemGenerationPackage(BaseModel):
+    problem_id: str
+    generated_problem: GeneratedProblem
+    testcase_bundle: Optional[TestcaseBundle] = None
+    reference_solution: Optional[ReferenceSolution] = None
+    validation_report: Optional[ValidationReport] = None
+    hint_bundle: Optional[HintBundle] = None
+    concept_context: List[str] = Field(default_factory=list)
+    summary: str = ""
+    safe_to_show: bool = True
+
+    @model_validator(mode="after")
+    def validate_package(self) -> "ProblemGenerationPackage":
+        if self.validation_report and not self.validation_report.passed:
+            self.safe_to_show = False
+
+        reports = [
+            self.generated_problem,
+            self.testcase_bundle,
+            self.hint_bundle
+        ]
+        for r in reports:
+            if r is not None and hasattr(r, "safe_to_show") and not r.safe_to_show:
+                self.safe_to_show = False
+                break
+
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return ",
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        if self.summary:
+            summary_lower = self.summary.lower()
+            if any(kw in summary_lower for kw in kws):
+                if not any(ph in summary_lower for ph in placeholders):
+                    unsafe = True
+        if unsafe:
+            self.safe_to_show = False
+
+        if not self.summary or not self.summary.strip():
+            raise ValueError("summary must be non-empty.")
+
+        return self
+
+
+class ProblemGenerationPackageInput(BaseModel):
+    algorithm: str
+    difficulty: str
+    problem_style: Optional[str] = None
+    language: Optional[str] = "python"
+    learning_goal: Optional[str] = None
+    user_level: Optional[str] = None
+    recent_weaknesses: List[str] = Field(default_factory=list)
+    include_hints: bool = True
+    include_concept_context: bool = True
+    max_validation_attempts: int = 2
+
+    @field_validator("max_validation_attempts")
+    @classmethod
+    def validate_max_validation_attempts(cls, v: int) -> int:
+        if not (1 <= v <= 5):
+            raise ValueError("max_validation_attempts must be between 1 and 5.")
+        return v
+
+
+class HintRequestPackageInput(BaseModel):
+    problem_id: str
+    query: str = "힌트를 주세요."
+    allowed_level: int = 1
+    requested_level: Optional[int] = None
+    user_situation: Optional[str] = None
+    include_sources: bool = True
+
+    @field_validator("allowed_level")
+    @classmethod
+    def validate_allowed_level(cls, v: int) -> int:
+        if v not in [1, 2, 3]:
+            raise ValueError("allowed_level must be 1, 2, or 3.")
+        return v
+
+    @field_validator("requested_level")
+    @classmethod
+    def validate_requested_level(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v not in [1, 2, 3]:
+            raise ValueError("requested_level must be 1, 2, or 3 if provided.")
+        return v
+
+
+class HintRequestPackage(BaseModel):
+    problem_id: str
+    allowed_level: int
+    requested_level: Optional[int] = None
+    delivered_level: int
+    hints: List[Hint] = Field(default_factory=list)
+    blocked: bool = False
+    block_reason: Optional[str] = None
+    source_refs: List[str] = Field(default_factory=list)
+    summary: str = ""
+    safe_to_show: bool = True
+
+    @model_validator(mode="after")
+    def validate_hint_package(self) -> "HintRequestPackage":
+        if self.delivered_level > self.allowed_level:
+            raise ValueError("delivered_level must not exceed allowed_level.")
+
+        for h in self.hints:
+            if h.reveals_core_code:
+                self.safe_to_show = False
+                break
+
+        if self.blocked:
+            for h in self.hints:
+                if h.level > self.allowed_level:
+                    raise ValueError("Hints must not exceed allowed_level when blocked.")
+
+        unsafe = False
+        kws = [
+            "def ",
+            "import ",
+            "#include",
+            "main(",
+            "public static void main",
+            "class solution",
+            "return ",
+        ]
+        placeholders = ["todo", "...", "pass", "구현", "빈칸", "작성"]
+        if self.summary:
+            summary_lower = self.summary.lower()
+            if any(kw in summary_lower for kw in kws):
+                if not any(ph in summary_lower for ph in placeholders):
+                    unsafe = True
+        if unsafe:
+            self.safe_to_show = False
+
+        if not self.summary or not self.summary.strip():
+            raise ValueError("summary must be non-empty.")
+
+        return self

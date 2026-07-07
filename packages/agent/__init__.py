@@ -19,12 +19,24 @@ from agent.schemas import (
     ComplexityAnalysis,
     CounterexampleReport,
     SubmissionReviewPackage,
+    ProblemGenerationPackage,
+    ProblemGenerationPackageInput,
+    HintRequestPackage,
+    HintRequestPackageInput,
 )
 
 from agent.services import (
     review_submission_package,
     review_submission_package_sync,
     review_package_to_dict,
+    generate_problem_package,
+    generate_problem_package_sync,
+    problem_package_to_public_dict,
+    problem_package_to_internal_dict,
+    request_hint_package,
+    request_hint_package_sync,
+    hint_package_to_dict,
+    can_promote_hint_level,
 )
 
 __all__ = [
@@ -48,7 +60,19 @@ __all__ = [
     "ComplexityAnalysis",
     "CounterexampleReport",
     "SubmissionReviewPackage",
+    "ProblemGenerationPackage",
+    "ProblemGenerationPackageInput",
+    "HintRequestPackage",
+    "HintRequestPackageInput",
     "review_submission_package",
     "review_submission_package_sync",
     "review_package_to_dict",
+    "generate_problem_package",
+    "generate_problem_package_sync",
+    "problem_package_to_public_dict",
+    "problem_package_to_internal_dict",
+    "request_hint_package",
+    "request_hint_package_sync",
+    "hint_package_to_dict",
+    "can_promote_hint_level",
 ]
