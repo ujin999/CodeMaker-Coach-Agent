@@ -29,4 +29,5 @@ out/
 
 # 기타 파일
 *.sh
+!apps/api/docker-entrypoint.sh
 project_context.txt
