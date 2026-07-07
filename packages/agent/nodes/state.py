@@ -11,6 +11,9 @@ from agent.schemas import (
     RoutingDecision,
     TestcaseRunResult,
     SubmissionEvaluationReport,
+    ErrorDiagnosis,
+    FailedCaseExplanation,
+    ComplexityAnalysis,
 )
 
 
@@ -26,6 +29,9 @@ class AgentState(TypedDict, total=False):
     routing_decision: RoutingDecision
     testcase_run_results: list[TestcaseRunResult]
     submission_evaluation_report: SubmissionEvaluationReport
+    error_diagnosis: ErrorDiagnosis
+    failed_case_explanation: FailedCaseExplanation
+    complexity_analysis: ComplexityAnalysis
     min_cases: int
     allowed_hint_level: int
     user_situation: Optional[str]
