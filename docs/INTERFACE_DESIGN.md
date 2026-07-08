@@ -1,4 +1,10 @@
-# MVP Interface Design Document (인터페이스 설계서)
+# MVP Interface Design Document (인터페이스 설계서) — 초기 설계 초안 (참고용)
+
+> **이 문서는 MVP 착수 전 초기 설계 초안이다.** 실제로 구현된 API 엔드포인트/요청·응답 스키마는
+> 이 문서와 다르다 (예: 테스트케이스·힌트는 별도 `/testcases/generate`, `/hints/generate`
+> 엔드포인트로 분리되지 않고 `POST /api/problems/generate` 한 번에 통합 생성된다). **실제 구현된
+> 전체 REST API 레퍼런스와 최신 시퀀스 다이어그램은 [`docs/API_REFERENCE.md`](API_REFERENCE.md)를
+> 참조한다.** 이 문서는 초기 UX/화면 설계 의도를 보여주는 역사적 자료로만 남겨둔다.
 
 본 문서는 **CodeMaker Coach Agent**의 MVP(Minimum Viable Product) 단계에서 구현된 AI 생성 레이어(`packages/agent`) 및 RAG 레이어(`packages/rag`)를 외부 API 서비스 및 웹 프론트엔드 인터페이스에 결합하기 위한 사양을 정의합니다.
 

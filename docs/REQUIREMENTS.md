@@ -95,12 +95,21 @@ CodeMaker Coach Agent의 기능/비기능 요구사항을 정의한다.
 - **FR-32 (SHOULD)** 공유 코드에 좋아요·댓글 기능을 제공한다.
 - **FR-33 (MAY)** 같은 문제의 여러 풀이(접근법)를 비교해 볼 수 있어야 한다.
 
-### 2.8 문제 신고 (Human-in-the-loop)
-- **FR-34 (SHOULD)** 사용자는 품질 낮은 생성 문제를 신고할 수 있어야 한다.
-- **FR-35 (SHOULD) [TODO - 차기 과제]** 특정 문제의 신고가 일정 횟수(예: 3회) 이상 누적되면, 중재 에이전트(Moderation Agent)가 자동 개입한다.
-  - LLM이 문제를 검사하여 심각한 결함(Critical) 시 자동으로 문제를 삭제 처리한다.
-  - 애매한 결함(Minor)일 경우 LangGraph의 Interrupt 기능을 통해 실행을 일시정지하고 관리자 승인 대기 상태로 이관(Human-in-the-Loop)한다.
-  - 문제가 정상(Safe)인 경우 신고를 기각한다.
+### 2.8 문제 신고 (Human-in-the-loop) — 구현 완료
+- **FR-34 (MUST)** 사용자는 품질 낮은 생성 문제를 신고할 수 있어야 한다. 같은 사용자가 같은 문제를
+  중복 신고할 수는 없다 (`ProblemReport` unique(user_id, problem_id)). 신고를 취소할 수도 있다.
+- **FR-35 (MUST)** 특정 문제의 누적 신고 수(`COUNT(*)`, 기본 임계치 5회 — `settings.problem_report_threshold`)가
+  임계치 이상이 되면, 사람이 검토하기 전에 Agent가 먼저 문제 본문과 신고 사유를 재검증해 심각도를
+  판정한다.
+  - `critical`(치명적 결함 명확) — 사람 검토 없이 즉시 문제를 삭제 처리(`status=removed`)한다.
+  - `safe`(오신고로 판단) — 사람 검토 없이 신고 내역을 초기화하고 `active` 상태를 유지한다.
+  - `minor`(애매함) 또는 **Agent 판정 자체가 실패한 경우** — 항상 안전하게 `under_review`로 전환해
+    사람 검토 대기열로 넘긴다 (오탐으로 인한 자동 삭제/자동 기각을 막는 기본값).
+  - 사람 검토(`GET /api/problems/flagged`, `POST /api/problems/{id}/review`)는 **별도의 관리자
+    계정 없이, 로그인한 모든 사용자**가 dismiss(기각)/remove(삭제)/edit(수정 후 복구) 조치를 할 수
+    있다. LangGraph의 Interrupt/체크포인터 재개 방식은 쓰지 않는다 — 판정과 상태 전이가 신고
+    요청-응답 한 번 안에서 동기적으로 끝난다.
+  - 상세 구현: `docs/ARCHITECTURE.md` 7장, `docs/API_REFERENCE.md`.
 
 ---
 

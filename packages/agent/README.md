@@ -12,15 +12,21 @@
   "LangGraph"를 언급하지만, 실제 LangGraph `StateGraph` 조립은 아직 목표/확장 단계이며
   현재 코드는 아니다. `AgentState`(TypedDict, `nodes/state.py`)를 공유 상태로 쓰는
   일반 함수 파이프라인이다.
-- 문제 유형은 결정론적으로 지원되는 4가지 archetype(+ binary_search 변형 4종:
-  `cable_cutting`, `router_installation`, `immigration_time`, `lower_bound_count`)
-  중심으로 테스트케이스/정답 코드가 생성된다 (`testcase_generators/`, `reference_solvers/`).
-  지원하지 않는 유형은 `UnsupportedTestcaseGeneratorError`/`UnsupportedReferenceSolverError`가
-  발생하고, 라우팅 결정에 따라 재생성되거나 인간 검토 대상이 된다.
+- 문제 유형은 결정론적으로 지원되는 8개 archetype 중심으로 테스트케이스/정답 코드가
+  생성된다 (`testcase_generators/`, `reference_solvers/`): 비-이분탐색 3종
+  (`two_pointer_subarray`, `bfs_grid_shortest_path`, `dfs_grid_components`) + `binary_search`
+  알고리즘 요청 시 `variants.py`가 seed 해시로 고르는 5종(`budget_cap`, `cable_cutting`,
+  `router_installation`, `immigration_time`, `lower_bound_count`). 지원하지 않는 유형은
+  `UnsupportedTestcaseGeneratorError`/`UnsupportedReferenceSolverError`가 발생하고, 라우팅
+  결정에 따라 재생성되거나 인간 검토 대상이 된다.
+- 문제 생성/채점 파이프라인과 별개로, 문제 신고가 임계치 이상 누적되면
+  `chains/problem_report_assessment.py` + `services/problem_report_assessment_service.py`가
+  문제 본문과 신고 사유를 LLM으로 재판정해 `critical`/`safe`/`minor` 심각도를 매긴다
+  (실패 시 항상 `minor`로 안전 폴백). 상세: `docs/ARCHITECTURE.md` 7장, API.md 3.23장.
 
 ## Public Service API (API 서버가 호출해야 하는 진입점)
 
-`app.gateway.AgentGateway`는 아래 3개의 async 함수만 호출한다. API/Web 개발자는
+`app.gateway.AgentGateway`는 아래 4개의 async 함수만 호출한다. API/Web 개발자는
 `chains`/`nodes`를 직접 부르지 말고 이 레벨을 사용한다.
 
 ### `generate_problem_package(input: ProblemGenerationPackageInput) -> ProblemGenerationPackage`
@@ -40,6 +46,10 @@ allowed_level`이면 `blocked=True`와 함께 허용 단계 이하 힌트만 돌
 채점 결과(AC/WA/TLE/RE/MLE)에 대해 오답 진단 → 실패 케이스 설명 → 복잡도 분석 →
 반례 생성 → 피드백 요약까지 결정론적 규칙 기반으로 수행한다. `reference_solution`이나
 정답 코드는 어떤 필드에도 포함되지 않는다.
+
+### `assess_problem_report_package(input: ProblemReportAssessmentInput) -> ProblemReportAssessment`
+문제 신고 누적 시(HITL 이전 사전 심사)에만 호출된다. LLM 호출/파싱이 실패해도 예외를
+전파하지 않고 항상 `severity="minor"`로 안전 폴백한다. 상세: `docs/ARCHITECTURE.md` 7장.
 
 ## Lower-level Chains (직접 호출 지양)
 
