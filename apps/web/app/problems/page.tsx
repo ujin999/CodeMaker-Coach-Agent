@@ -176,7 +176,7 @@ export default function ProblemCatalogPage() {
         {!loading && weaknessReport && (
           <div className="mb-6 rounded-xl border border-brand/20 bg-brand/5 p-5 text-sm">
             <h2 className="text-base font-bold text-brand mb-4 flex items-center gap-2">
-              🤖 AI 맞춤 취약점 분석 대시보드
+              맞춤 취약점 분석 대시보드
             </h2>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -238,7 +238,7 @@ export default function ProblemCatalogPage() {
                         >
                           <span className="text-red-400 font-bold">●</span>
                           <span>{errKo}</span>
-                          <span className="bg-red-500/20 px-1.5 py-0.5 rounded text-red-300 font-semibold">
+                          <span className="bg-red-500/20 px-1.5 py-0.5 rounded text-red-300 font-semibold whitespace-nowrap">
                             {te.count}회
                           </span>
                         </div>
@@ -251,7 +251,7 @@ export default function ProblemCatalogPage() {
               {/* 3. AI 맞춤 추천 및 숏컷 */}
               <div className="rounded-lg bg-surface-2 p-4 flex flex-col justify-between">
                 <div>
-                  <p className="font-semibold text-white mb-2">🎯 AI 학습 코치 가이드</p>
+                  <p className="font-semibold text-white mb-2">학습 코치 가이드</p>
                   <p className="text-xs text-muted leading-relaxed">
                     {weaknessReport.recommendation}
                   </p>
