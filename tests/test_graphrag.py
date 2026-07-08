@@ -8,6 +8,8 @@ def test_driver_offline_behavior():
     """Tests that the Neo4j driver raises or fails gracefully when offline settings are wrong,
     and fallback behaves correctly.
     """
+    import packages.graphrag.driver
+    packages.graphrag.driver._driver = None
     with patch("packages.graphrag.driver.GraphDatabase.driver") as mock_driver_cls:
         mock_driver_cls.side_effect = Exception("Connection refused")
         

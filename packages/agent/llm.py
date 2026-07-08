@@ -100,6 +100,16 @@ class FakeStructuredChatModel:
                     if seed == "none" or not seed:
                         seed = None
 
+                # Extract result type if possible
+                result_type = "WA"
+                res_match = re.search(r"Result Type:\s*(\S+)", msg_text)
+                if res_match:
+                    result_type = res_match.group(1).strip().strip(",").strip('"').strip("'")
+                else:
+                    res_match_alt = re.search(r"result_type:\s*(\S+)", msg_text)
+                    if res_match_alt:
+                        result_type = res_match_alt.group(1).strip().strip(",").strip('"').strip("'")
+
                 if schema.__name__ == "GeneratedProblem":
                     from agent.schemas import HintBlueprint
                     from agent.variants import select_variant
@@ -184,7 +194,9 @@ class FakeStructuredChatModel:
                         if inspect.isclass(ann_type) and issubclass(ann_type, BaseModel):
                             data[name] = ann_type(**_create_dummy_data(ann_type))
                         elif ann_type == str:
-                            if "skeleton" in name.lower():
+                            if name == "result_type":
+                                data[name] = result_type
+                            elif "skeleton" in name.lower():
                                 data[name] = f"mock_{name} # TODO: pass ..."
                             else:
                                 data[name] = f"mock_{name}"
@@ -193,7 +205,10 @@ class FakeStructuredChatModel:
                         elif ann_type == float:
                             data[name] = 1.0
                         elif ann_type == bool:
-                            data[name] = False
+                            if name == "reveals_core_code":
+                                data[name] = False
+                            else:
+                                data[name] = True
                         elif orig is list:
                             list_args = getattr(ann_type, "__args__", [])
                             if list_args and inspect.isclass(list_args[0]) and issubclass(list_args[0], BaseModel):
@@ -205,7 +220,6 @@ class FakeStructuredChatModel:
                             data[name] = lit_args[0] if lit_args else None
                         else:
                             data[name] = None
-
 
                     return data
                     

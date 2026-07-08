@@ -166,7 +166,9 @@ def build_feedback_from_submission(
     """
     Generate feedback using LLM when prefer_llm is True, falling back to deterministic if it fails.
     """
-    if prefer_llm:
+    import os
+    is_stub_or_test = os.getenv("AGENT_MODE") == "stub" or os.getenv("ENV") == "test"
+    if prefer_llm and not is_stub_or_test:
         try:
             from agent.chains.feedback_generation import generate_feedback
             return generate_feedback(problem, submission)
