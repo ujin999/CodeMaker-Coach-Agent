@@ -174,10 +174,9 @@ def list_problems(
     skip: int = 0,
     limit: int = 20,
 ) -> List[ProblemSummaryResponse]:
-    """내가 만든 문제 목록 조회."""
+    """전체 문제 목록 조회."""
     problems = (
         db.query(Problem)
-        .filter(Problem.created_by == user_id)
         .order_by(Problem.created_at.desc())
         .offset(skip)
         .limit(limit)
