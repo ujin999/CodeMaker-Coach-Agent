@@ -37,5 +37,6 @@ class AgentState(TypedDict, total=False):
     min_cases: int
     allowed_hint_level: int
     user_situation: Optional[str]
+    generation_attempts: int
     errors: list[str]
     metadata: dict[str, Any]

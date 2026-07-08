@@ -5,6 +5,10 @@ def generate_hints_node(state: AgentState) -> AgentState:
     """
     Read state["generated_problem"], call generate_hints(), and return updated state.
     """
+    metadata = state.get("metadata", {})
+    if not metadata.get("include_hints", True):
+        return state
+
     if "generated_problem" not in state or state["generated_problem"] is None:
         raise ValueError("Missing 'generated_problem' in agent state.")
 

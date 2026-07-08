@@ -22,39 +22,23 @@ def run_package_workflow(
     include_hints: bool = True,
 ) -> AgentState:
     """
-    Run a simple package-level workflow:
-    problem -> testcases -> optional hints -> validation -> routing.
+    Run a LangGraph-based workflow.
     """
-    # Initialize the workflow state
-    state = AgentState(
+    from agent.graph import build_graph
+
+    initial_state = AgentState(
         generation_input=generation_input,
         min_cases=min_cases,
         allowed_hint_level=allowed_hint_level,
         user_situation=user_situation,
+        generation_attempts=0,
         errors=[],
-        metadata={}
+        metadata={"include_hints": include_hints}
     )
 
-    # 1. Problem generation
-    state = generate_problem_node(state)
-
-    # 2. Testcase generation
-    state = generate_testcases_node(state)
-
-    # 3. Reference solution generation + Judge0 verification
-    state = generate_reference_solution_node(state)
-
-    # 4. Optional Hint generation
-    if include_hints:
-        state = generate_hints_node(state)
-
-    # 5. Validation
-    state = validate_outputs_node(state)
-
-    # 6. Routing
-    state = route_next_action_node(state)
-
-    return state
+    app = build_graph()
+    result = app.invoke(initial_state)
+    return result
 
 
 def run_feedback_workflow(
