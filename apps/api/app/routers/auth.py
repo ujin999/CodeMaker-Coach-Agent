@@ -75,3 +75,12 @@ def delete_me(
     if user:
         db.delete(user)
         db.commit()
+
+
+@router.get("/weaknesses", status_code=status.HTTP_200_OK)
+def get_my_weaknesses(
+    user_id: int = Depends(get_current_user_id),
+) -> dict:
+    """로그인한 현재 사용자의 AI 취약점 진단 및 다음 추천 학습 조회 (Phase 4)."""
+    from packages.graphrag import get_user_weaknesses
+    return get_user_weaknesses(user_id)

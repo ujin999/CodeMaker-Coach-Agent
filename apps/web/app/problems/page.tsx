@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ApiError, problemsApi } from "@/lib/api";
+import { ApiError, problemsApi, authApi } from "@/lib/api";
 import { ALGORITHM_CATEGORIES, DIFFICULTY_LEVELS } from "@/lib/constants";
-import type { ProblemSummary } from "@/lib/types";
+import type { ProblemSummary, UserWeaknessesResponse } from "@/lib/types";
 import ProblemCard from "@/components/ProblemCard";
 
 type SortKey = "recent" | "difficulty";
@@ -15,6 +15,7 @@ export default function ProblemCatalogPage() {
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [weaknessReport, setWeaknessReport] = useState<UserWeaknessesResponse | null>(null);
 
   const [algorithms, setAlgorithms] = useState<string[]>([]);
   const [difficulties, setDifficulties] = useState<string[]>([]);
@@ -29,6 +30,10 @@ export default function ProblemCatalogPage() {
         setError(err instanceof ApiError ? err.message : "문제 목록을 불러오지 못했습니다.")
       )
       .finally(() => setLoading(false));
+
+    authApi.weaknesses()
+      .then(setWeaknessReport)
+      .catch(() => {});
   }, []);
 
   function toggleAlgorithm(value: string) {
@@ -167,6 +172,105 @@ export default function ProblemCatalogPage() {
       </aside>
 
       <section>
+        {/* AI 취약점 진단 대시보드 (Phase 4) */}
+        {!loading && weaknessReport && (
+          <div className="mb-6 rounded-xl border border-brand/20 bg-brand/5 p-5 text-sm">
+            <h2 className="text-base font-bold text-brand mb-4 flex items-center gap-2">
+              🤖 AI 맞춤 취약점 분석 대시보드
+            </h2>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {/* 1. 취약 개념 게이지 */}
+              <div className="rounded-lg bg-surface-2 p-4">
+                <p className="font-semibold text-white mb-3">⚠️ 취약 알고리즘 TOP 3</p>
+                {weaknessReport.weak_concepts.length === 0 ? (
+                  <p className="text-xs text-muted py-2">아직 감지된 취약 알고리즘이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {weaknessReport.weak_concepts.map((wc, i) => {
+                      const nameKo = {
+                        binary_search: "이분 탐색",
+                        bfs: "너비 우선 탐색 (BFS)",
+                        dfs: "깊이 우선 탐색 (DFS)",
+                        two_pointer: "투 포인터",
+                        dp_basic: "동적 계획법 (DP)",
+                        greedy: "그리디 알고리즘",
+                        hash: "해시 (Hash Map)"
+                      }[wc.concept] || wc.concept;
+                      const percentage = Math.min(100, (wc.score / 10.0) * 100);
+                      return (
+                        <div key={i}>
+                          <div className="flex justify-between text-xs text-muted mb-1">
+                            <span>{nameKo}</span>
+                            <span>{wc.score} / 10.0</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-border overflow-hidden">
+                            <div
+                              className="h-full bg-orange-500 transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. 잦은 오답 패턴 */}
+              <div className="rounded-lg bg-surface-2 p-4">
+                <p className="font-semibold text-white mb-3">❌ 자주 발생한 오답</p>
+                {weaknessReport.top_errors.length === 0 ? (
+                  <p className="text-xs text-muted py-2">아직 오답 이력이 누적되지 않았습니다.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {weaknessReport.top_errors.map((te, i) => {
+                      const errKo = {
+                        WA: "틀렸습니다 (Wrong Answer)",
+                        TLE: "시간 초과 (Time Limit)",
+                        RE: "런타임 에러 (Runtime Error)",
+                        MLE: "메모리 초과 (Memory Limit)"
+                      }[te.error_type] || te.error_type;
+                      return (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-white"
+                        >
+                          <span className="text-red-400 font-bold">●</span>
+                          <span>{errKo}</span>
+                          <span className="bg-red-500/20 px-1.5 py-0.5 rounded text-red-300 font-semibold">
+                            {te.count}회
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. AI 맞춤 추천 및 숏컷 */}
+              <div className="rounded-lg bg-surface-2 p-4 flex flex-col justify-between">
+                <div>
+                  <p className="font-semibold text-white mb-2">🎯 AI 학습 코치 가이드</p>
+                  <p className="text-xs text-muted leading-relaxed">
+                    {weaknessReport.recommendation}
+                  </p>
+                </div>
+                {weaknessReport.weak_concepts.length > 0 && (
+                  <div className="mt-3">
+                    <Link
+                      href={`/generate?algorithm=${weaknessReport.weak_concepts[0].concept}`}
+                      className="block text-center rounded-md bg-brand py-2 text-xs font-semibold text-white hover:bg-brand-hover transition-colors"
+                    >
+                      취약점 저격 문제 즉시 생성 🎯
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {loading && <p className="text-muted">불러오는 중...</p>}
         {error && <p className="text-red-400">{error}</p>}
         {!loading && !error && filtered.length === 0 && (

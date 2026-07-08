@@ -108,6 +108,7 @@ export const authApi = {
     }),
   me: () => request<UserResponse>("/api/auth/me"),
   deleteMe: () => request<void>("/api/auth/me", { method: "DELETE" }),
+  weaknesses: () => request<any>("/api/auth/weaknesses"),
 };
 
 // ── Problems ─────────────────────────────────────────────────────────────────

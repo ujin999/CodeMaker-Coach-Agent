@@ -172,7 +172,8 @@ ProblemReport   : id, user_id, problem_id, reason, created_at
 | `neo4j` | Graph RAG (개인화 확장) | ✅ (Phase 4 도입) |
 | ~~`redis`~~ | ~~채점 큐 브로커~~ → **MVP 제외**, 인메모리 큐로 대체 (트래픽 증가 시 도입) | ⬜ |
 
-> - 채점 큐는 MVP에서 API 프로세스 내부 인메모리 큐로 처리하므로 별도 컨테이너가 없다. (2.6 참조)
+> - 채점 큐는 MVP에서 API 프로세스 내부 인메모리 큐(`apps/api/app/queue.py`)로 처리하므로 별도 컨테이너가 없다. (2.6 참조)
+> - `judge0-redis`는 Judge0 자체 구현이 쓰는 내부 컴포넌트다. "앱 큐용 Redis"와 혼동하지 않는다 — 위 표의 `~~redis~~` 행이 가리키는 것은 앱 큐용이며 MVP에서 실제로 존재하지 않는다.
 > - Judge0는 API·DB 네트워크와 분리된 네트워크에 두어 격리한다. (NFR-2)
 
 ---

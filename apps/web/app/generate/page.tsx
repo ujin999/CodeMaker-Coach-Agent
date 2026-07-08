@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ApiError, problemsApi } from "@/lib/api";
@@ -9,9 +9,18 @@ import { ALGORITHM_CATEGORIES, DIFFICULTY_LEVELS, LANGUAGES } from "@/lib/consta
 import type { ProblemDetail } from "@/lib/types";
 import DifficultyBadge from "@/components/DifficultyBadge";
 
-export default function GeneratePage() {
+function GenerateForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [algorithm, setAlgorithm] = useState(ALGORITHM_CATEGORIES[0].value);
+
+  useEffect(() => {
+    const algoParam = searchParams.get("algorithm");
+    if (algoParam && ALGORITHM_CATEGORIES.some((a) => a.value === algoParam)) {
+      setAlgorithm(algoParam);
+    }
+  }, [searchParams]);
+
   const [difficulty, setDifficulty] = useState("easy");
   const [language, setLanguage] = useState(LANGUAGES[0].value);
   const [learningGoal, setLearningGoal] = useState("");
@@ -21,6 +30,7 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ProblemDetail | null>(null);
   const [avoidProblemIds, setAvoidProblemIds] = useState<string[]>([]);
+  const [focusWeaknesses, setFocusWeaknesses] = useState(true);
 
     function createClientSeed(): string {
     if (
@@ -56,6 +66,7 @@ export default function GeneratePage() {
         seed: createClientSeed(),
         force_new: true,
         avoid_problem_ids: avoidProblemIds,
+        focus_weaknesses: focusWeaknesses,
       });
       setPreview(problem);
       if (problem?.id) {
@@ -114,6 +125,19 @@ export default function GeneratePage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md border border-brand/20 bg-brand/5 p-3">
+            <input
+              type="checkbox"
+              id="focusWeaknesses"
+              checked={focusWeaknesses}
+              onChange={(e) => setFocusWeaknesses(e.target.checked)}
+              className="h-4 w-4 rounded border-border bg-surface text-brand outline-none focus:ring-0 accent-brand cursor-pointer"
+            />
+            <label htmlFor="focusWeaknesses" className="text-sm font-medium text-white cursor-pointer select-none">
+              AI 취약점 극복 옵션 적용 (추천)
+            </label>
           </div>
 
           <div>
@@ -263,5 +287,17 @@ export default function GeneratePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GeneratePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[400px] items-center justify-center text-muted">
+        폼을 로드하는 중...
+      </div>
+    }>
+      <GenerateForm />
+    </Suspense>
   );
 }

@@ -41,6 +41,13 @@ export interface ProblemGenerateRequest {
   seed?: string | null;
   avoid_problem_ids?: string[];
   force_new?: boolean;
+  focus_weaknesses?: boolean;
+}
+
+export interface UserWeaknessesResponse {
+  weak_concepts: { concept: string; score: number }[];
+  top_errors: { error_type: string; count: number }[];
+  recommendation: string;
 }
 
 export interface ProblemSummary {
@@ -117,7 +124,8 @@ export type SubmissionStatus =
   | "WA"
   | "TLE"
   | "RE"
-  | "MLE";
+  | "MLE"
+  | "JUDGE_ERROR";
 
 export interface SubmissionRequest {
   code: string;
