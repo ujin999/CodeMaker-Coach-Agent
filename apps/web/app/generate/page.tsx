@@ -22,6 +22,25 @@ export default function GeneratePage() {
   const [preview, setPreview] = useState<ProblemDetail | null>(null);
   const [avoidProblemIds, setAvoidProblemIds] = useState<string[]>([]);
 
+    function createClientSeed(): string {
+    if (
+      typeof globalThis !== "undefined" &&
+      globalThis.crypto &&
+      typeof globalThis.crypto.randomUUID === "function"
+    ) {
+      return globalThis.crypto.randomUUID();
+    }
+
+    return `seed_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function toggleWeakness(value: string) {
+    setWeaknesses((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
   function toggleWeakness(value: string) {
     setWeaknesses((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
