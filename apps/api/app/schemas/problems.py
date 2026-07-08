@@ -14,6 +14,9 @@ class ProblemGenerateRequest(BaseModel):
     min_cases: int = 5
     allowed_hint_level: int = 3
     include_hints: bool = True
+    seed: Optional[str] = None
+    avoid_problem_ids: List[str] = Field(default_factory=list)
+    force_new: bool = False
 
 
 class ProblemGenerateResponse(BaseModel):
@@ -24,3 +27,7 @@ class ProblemGenerateResponse(BaseModel):
     validation_report: Optional[dict] = None
     routing_decision: Optional[dict] = None
     gateway_mode: str = "unknown"
+    generation_mode: Optional[str] = None
+    seed: Optional[str] = None
+    variant_id: Optional[str] = None
+

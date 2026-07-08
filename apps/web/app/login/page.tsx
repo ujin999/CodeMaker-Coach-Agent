@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, authApi } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { saveToken } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { access_token } = await authApi.login({ email, password });
-      setToken(access_token);
+      saveToken(access_token);
       router.push("/problems");
       router.refresh();
     } catch (err) {

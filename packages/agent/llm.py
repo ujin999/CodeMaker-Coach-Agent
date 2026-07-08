@@ -74,6 +74,96 @@ class FakeStructuredChatModel:
                     elif isinstance(res, dict):
                         return schema(**res)
                 
+                import inspect
+                import re
+
+                # Extract details from input messages
+                msg_text = ""
+                if isinstance(input, str):
+                    msg_text = input
+                elif isinstance(input, list):
+                    msg_text = "\n".join(getattr(m, "content", "") for m in input)
+                else:
+                    msg_text = str(input)
+
+                # Extract algorithm
+                algo = "binary_search"
+                algo_match = re.search(r"Core Algorithm:\s*(\S+)", msg_text)
+                if algo_match:
+                    algo = algo_match.group(1).strip().strip(",")
+                
+                # Extract seed
+                seed = None
+                seed_match = re.search(r"Generation Seed/Nonce:\s*(\S+)", msg_text)
+                if seed_match:
+                    seed = seed_match.group(1).strip()
+                    if seed == "none" or not seed:
+                        seed = None
+
+                if schema.__name__ == "GeneratedProblem":
+                    from agent.schemas import HintBlueprint
+                    from agent.variants import select_variant
+
+                    variant = select_variant(algo, seed)
+
+                    p_id = f"stub-{algo}-001"
+                    if seed:
+                        clean_seed = "".join(c for c in seed if c.isalnum() or c == "_")[:8]
+                        p_id = f"stub-{algo}_{clean_seed}-001"
+                    
+                    if variant:
+                        tmpl = variant["stub_template"]
+                        title = tmpl["title"]
+                        if seed:
+                            title += f" (Seed: {seed})"
+                        statement = tmpl["statement"]
+                        input_format = tmpl["input_format"]
+                        output_format = tmpl["output_format"]
+                        constraints = tmpl["constraints"]
+                        sample_input = tmpl.get("sample_input")
+                        sample_output = tmpl.get("sample_output")
+                    else:
+                        title = f"[STUB] {algo} 연습 문제"
+                        if seed:
+                            title += f" (Seed: {seed})"
+                        statement = f"이 문제는 {algo} 알고리즘을 연습하기 위한 스터브 문제입니다. Seed: {seed or 'none'}"
+                        if algo == "two_pointer":
+                            statement += "\n투 포인터 sliding window로 합이 k 이하인 연속 부분 배열 최대 길이를 구합니다."
+                        elif algo == "bfs":
+                            statement += "\n격자에서 최단 거리를 BFS 너비 우선 탐색으로 구합니다. 상하좌우 벽"
+                        elif algo == "dfs":
+                            statement += "\n격자에서 연결 요소를 DFS 깊이 우선 탐색으로 구합니다. 상하좌우"
+                        input_format = "입력 포맷"
+                        output_format = "출력 포맷"
+                        constraints = ["제한 사항"]
+                        sample_input = None
+                        sample_output = None
+
+                    return schema(
+                        problem_id=p_id,
+                        title=title,
+                        difficulty="easy",
+                        algorithm=[algo],
+                        learning_goal="기본 로직 이해",
+                        statement=statement,
+                        input_format=input_format,
+                        output_format=output_format,
+                        constraints=constraints,
+                        sample_input=sample_input,
+                        sample_output=sample_output,
+                        expected_time_complexity="O(N)",
+                        hint_blueprint=HintBlueprint(
+                            intended_algorithm=[algo],
+                            core_insight="핵심 통찰",
+                            common_misconceptions=["실수"],
+                            edge_case_focus=["경계값"],
+                            forbidden_disclosures=["코드"],
+                            level_1_guidance="1단계 가이드",
+                            level_2_guidance="2단계 가이드",
+                            level_3_guidance="3단계 가이드",
+                        )
+                    )
+
                 # Fallback: construct dummy instance matching the schema fields
                 import inspect
                 

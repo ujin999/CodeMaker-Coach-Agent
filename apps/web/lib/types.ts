@@ -38,6 +38,9 @@ export interface ProblemGenerateRequest {
   min_cases?: number;
   allowed_hint_level?: number;
   include_hints?: boolean;
+  seed?: string | null;
+  avoid_problem_ids?: string[];
+  force_new?: boolean;
 }
 
 export interface ProblemSummary {
@@ -64,6 +67,9 @@ export interface ProblemDetail {
   sample_output: string | null;
   expected_time_complexity: string;
   created_at: string;
+  seed?: string | null;
+  generation_mode?: string | null;
+  variant_id?: string | null;
 }
 
 // GET /api/problems 목록 조회 쿼리.

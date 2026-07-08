@@ -1,6 +1,10 @@
 from agent.schemas import GeneratedProblem, ReferenceSolution
 from agent.testcase_generators.base import detect_problem_type
 from agent.reference_solvers.budget_cap import get_reference_solution_code as _budget_cap_code
+from agent.reference_solvers.cable_cutting import get_reference_solution_code as _cable_cutting_code
+from agent.reference_solvers.router_installation import get_reference_solution_code as _router_installation_code
+from agent.reference_solvers.immigration_time import get_reference_solution_code as _immigration_time_code
+from agent.reference_solvers.lower_bound_count import get_reference_solution_code as _lower_bound_count_code
 from agent.reference_solvers.two_pointer_subarray import (
     get_reference_solution_code as _two_pointer_subarray_code,
 )
@@ -18,6 +22,10 @@ class UnsupportedReferenceSolverError(Exception):
 
 _CODE_BUILDERS = {
     "budget_cap": _budget_cap_code,
+    "cable_cutting": _cable_cutting_code,
+    "router_installation": _router_installation_code,
+    "immigration_time": _immigration_time_code,
+    "lower_bound_count": _lower_bound_count_code,
     "two_pointer_subarray": _two_pointer_subarray_code,
     "bfs_grid_shortest_path": _bfs_grid_shortest_path_code,
     "dfs_grid_components": _dfs_grid_components_code,

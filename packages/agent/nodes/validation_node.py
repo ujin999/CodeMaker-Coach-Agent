@@ -162,6 +162,50 @@ def validate_testcase_bundle(
                 message=f"Budget cap testcase validation failed: {str(e)}",
                 location="testcase_bundle"
             ))
+    elif prob_type == "cable_cutting":
+        from agent.testcase_generators.cable_cutting import assert_cable_cutting_bundle_is_valid
+        try:
+            assert_cable_cutting_bundle_is_valid(bundle)
+        except AssertionError as e:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="TESTCASE_VALIDATION_FAILED",
+                message=f"Cable cutting testcase validation failed: {str(e)}",
+                location="testcase_bundle"
+            ))
+    elif prob_type == "router_installation":
+        from agent.testcase_generators.router_installation import assert_router_installation_bundle_is_valid
+        try:
+            assert_router_installation_bundle_is_valid(bundle)
+        except AssertionError as e:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="TESTCASE_VALIDATION_FAILED",
+                message=f"Router installation testcase validation failed: {str(e)}",
+                location="testcase_bundle"
+            ))
+    elif prob_type == "immigration_time":
+        from agent.testcase_generators.immigration_time import assert_immigration_time_bundle_is_valid
+        try:
+            assert_immigration_time_bundle_is_valid(bundle)
+        except AssertionError as e:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="TESTCASE_VALIDATION_FAILED",
+                message=f"Immigration time testcase validation failed: {str(e)}",
+                location="testcase_bundle"
+            ))
+    elif prob_type == "lower_bound_count":
+        from agent.testcase_generators.lower_bound_count import assert_lower_bound_count_bundle_is_valid
+        try:
+            assert_lower_bound_count_bundle_is_valid(bundle)
+        except AssertionError as e:
+            issues.append(ValidationIssue(
+                severity="error",
+                code="TESTCASE_VALIDATION_FAILED",
+                message=f"Lower bound count testcase validation failed: {str(e)}",
+                location="testcase_bundle"
+            ))
     elif prob_type == "two_pointer_subarray":
         from agent.testcase_generators.two_pointer_subarray import assert_two_pointer_subarray_bundle_is_valid
         try:

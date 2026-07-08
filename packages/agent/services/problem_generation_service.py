@@ -32,7 +32,10 @@ async def generate_problem_package(
         language=input_data.language,
         learning_goal=input_data.learning_goal,
         user_level=input_data.user_level,
-        recent_weaknesses=input_data.recent_weaknesses
+        recent_weaknesses=input_data.recent_weaknesses,
+        seed=input_data.seed,
+        avoid_problem_ids=input_data.avoid_problem_ids,
+        force_new=input_data.force_new
     )
 
     state = {}
@@ -107,6 +110,24 @@ async def generate_problem_package(
             safe_to_show = False
             break
 
+    # Determine generation mode
+    import os
+    from config.settings import settings
+    has_key = bool(settings.openai_api_key or settings.anthropic_api_key)
+    if os.getenv("AGENT_MODE") == "stub" or not has_key or os.getenv("ENV") == "test" or os.getenv("USE_FAKE_EMBEDDINGS") == "true":
+        gen_mode = "template_fallback"
+    else:
+        gen_mode = "live"
+
+    variant_id = None
+    if input_data.seed:
+        from agent.variants import select_variant
+        var_info = select_variant(input_data.algorithm, input_data.seed)
+        if var_info:
+            variant_id = var_info["variant_id"]
+        else:
+            variant_id = f"var_{input_data.seed}"
+
     return ProblemGenerationPackage(
         problem_id=generated_problem.problem_id if generated_problem else "unknown",
         generated_problem=generated_problem,
@@ -116,7 +137,10 @@ async def generate_problem_package(
         hint_bundle=hint_bundle,
         concept_context=concept_context,
         summary=summary,
-        safe_to_show=safe_to_show
+        safe_to_show=safe_to_show,
+        generation_mode=gen_mode,
+        seed=input_data.seed,
+        variant_id=variant_id
     )
 
 

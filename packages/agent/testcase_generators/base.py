@@ -3,7 +3,17 @@ from typing import Literal
 from agent.schemas import GeneratedProblem
 
 # Type alias for supported problem types
-ProblemType = Literal["budget_cap", "two_pointer_subarray", "bfs_grid_shortest_path", "dfs_grid_components", "unsupported"]
+ProblemType = Literal[
+    "budget_cap",
+    "cable_cutting",
+    "router_installation",
+    "immigration_time",
+    "lower_bound_count",
+    "two_pointer_subarray",
+    "bfs_grid_shortest_path",
+    "dfs_grid_components",
+    "unsupported"
+]
 
 
 class UnsupportedTestcaseGeneratorError(Exception):
@@ -66,6 +76,9 @@ def is_budget_cap_problem(problem: GeneratedProblem) -> bool:
 
     # Check if algorithm has binary_search and there is budget cap context
     if problem.algorithm and "binary_search" in problem.algorithm:
+        # Exclude other binary search variants to avoid false positives
+        if any(kw in normalized for kw in ["랜선", "자르기", "케이블", "나무", "공유기", "설치", "거리", "심사", "입국심사", "심사관", "첫 번째", "정렬", "인덱스"]):
+            return False
         for kw in ["예산", "상한", "배정", "budget", "cap"]:
             if kw in normalized:
                 return True
@@ -203,14 +216,54 @@ def is_dfs_grid_components_problem(problem: GeneratedProblem) -> bool:
     return False
 
 
+def is_cable_cutting_problem(problem: GeneratedProblem) -> bool:
+    normalized = problem_text(problem)
+    if problem.algorithm and "binary_search" in problem.algorithm:
+        for kw in ["자르기", "랜선", "케이블", "나무", "cable", "cut", "pieces"]:
+            if kw in normalized:
+                return True
+    return False
+
+
+def is_router_installation_problem(problem: GeneratedProblem) -> bool:
+    normalized = problem_text(problem)
+    if problem.algorithm and "binary_search" in problem.algorithm:
+        for kw in ["공유기", "설치", "거리", "router", "installation", "antenna"]:
+            if kw in normalized:
+                return True
+    return False
+
+
+def is_immigration_time_problem(problem: GeneratedProblem) -> bool:
+    normalized = problem_text(problem)
+    if problem.algorithm and "binary_search" in problem.algorithm:
+        for kw in ["심사", "입국심사", "부스", "immigration", "booth", "시간"]:
+            if kw in normalized:
+                return True
+    return False
+
+
+def is_lower_bound_count_problem(problem: GeneratedProblem) -> bool:
+    normalized = problem_text(problem)
+    if problem.algorithm and "binary_search" in problem.algorithm:
+        for kw in ["첫 번째", "인덱스", "이상", "정렬", "lower_bound", "index"]:
+            if kw in normalized:
+                return True
+    return False
+
+
 def detect_problem_type(problem: GeneratedProblem) -> ProblemType:
     """
-    Return "budget_cap" for supported budget cap problems.
-    Return "two_pointer_subarray" for supported two-pointer subarray problems.
-    Return "bfs_grid_shortest_path" for supported BFS grid shortest path problems.
-    Return "dfs_grid_components" for supported DFS grid components problems.
-    Return "unsupported" otherwise.
+    Return the corresponding variant if supported, otherwise "unsupported".
     """
+    if is_cable_cutting_problem(problem):
+        return "cable_cutting"
+    if is_router_installation_problem(problem):
+        return "router_installation"
+    if is_immigration_time_problem(problem):
+        return "immigration_time"
+    if is_lower_bound_count_problem(problem):
+        return "lower_bound_count"
     if is_budget_cap_problem(problem):
         return "budget_cap"
     if is_two_pointer_subarray_problem(problem):

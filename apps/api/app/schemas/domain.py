@@ -37,6 +37,9 @@ class ProblemDetailResponse(BaseModel):
     sample_output: Optional[str]
     expected_time_complexity: str
     created_at: datetime
+    generation_mode: Optional[str] = None
+    seed: Optional[str] = None
+    variant_id: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
