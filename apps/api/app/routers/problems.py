@@ -114,10 +114,21 @@ async def generate_problem(
         if reference_solution:
             reference_solution.problem_id = unique_id
 
+        # difficulty 값 정규화 — LLM이 한국어나 비표준 값을 출력하는 경우 방어
+        _DIFFICULTY_MAP = {
+            "쉬움": "easy", "쉬운": "easy", "낮음": "easy",
+            "중간": "medium", "보통": "medium", "중급": "medium", "중간 정도": "medium",
+            "어려움": "hard", "어려운": "hard", "높음": "hard",
+        }
+        normalized_difficulty = _DIFFICULTY_MAP.get(
+            generated.difficulty,
+            generated.difficulty if generated.difficulty in {"easy", "medium", "hard"} else "medium"
+        )
+
         problem_orm = Problem(
             id=unique_id,
             title=generated.title,
-            difficulty=generated.difficulty,
+            difficulty=normalized_difficulty,
             algorithm=generated.algorithm,
             learning_goal=generated.learning_goal,
             statement=generated.statement,

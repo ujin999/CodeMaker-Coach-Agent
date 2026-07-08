@@ -15,6 +15,8 @@ def build_problem_generation_prompt() -> ChatPromptTemplate:
         "JSON keys must remain in English as defined in the schema. "
         "Problem title, statement, input_format, output_format, constraints, learning_goal, and HintBlueprint text fields (core_insight, level_1_guidance, level_2_guidance, level_3_guidance, common_misconceptions, edge_case_focus, forbidden_disclosures) must be written in Korean. "
         "Do not translate programming language names (e.g., Python, C++, Java), algorithm names, or Big-O notations.\n"
+        "5-1. CRITICAL: The 'difficulty' field in the JSON output MUST be exactly one of: 'easy', 'medium', or 'hard'. "
+        "Do NOT use Korean values like '쉬움', '보통', '어려움', '중간', '중급', or any other value. Only 'easy', 'medium', 'hard' are valid.\n"
         "6. ALGORITHM ALIGNMENT & STRUCTURAL CLARITY: The generated problem must genuinely require the requested Core Algorithm and cannot be bypassed by a simpler direct method. "
         "The problem statement MUST explicitly define: (a) the precise decision variable (e.g. C), (b) the feasibility condition, (c) the objective, (d) a step-by-step example explanation, and (e) why the condition is monotonic.\n"
         "7. BUDGET CAP PROBLEMS: If the Core Algorithm is 'binary_search' and is formulated as a budget cap problem, the statement MUST explicitly include the following exact phrases for deterministic detection: "
