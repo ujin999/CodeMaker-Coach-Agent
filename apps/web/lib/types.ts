@@ -127,11 +127,53 @@ export interface SubmissionRequest {
 export interface SubmissionResponse {
   id: number;
   problem_id: string;
+  code?: string;
   language: string;
   status: SubmissionStatus;
   runtime_ms: number | null;
   memory_kb: number | null;
   created_at: string;
+}
+
+export interface SubmissionReviewRequest {
+  problem_id: string;
+  problem_title?: string;
+  problem_difficulty?: string;
+  problem_algorithm?: string[];
+  problem_statement?: string;
+  user_code: string;
+  language?: string;
+  result_type: string;
+  include_concept_context?: boolean;
+}
+
+export interface SubmissionReviewReport {
+  problem_id: string;
+  result_type: string;
+  summary: string;
+  safe_to_show: boolean;
+  error_diagnosis?: {
+    primary_cause?: string;
+    evidence?: string[];
+    suggested_focus?: string[];
+  } | null;
+  complexity_analysis?: {
+    risk_level?: string;
+    suspected_complexity?: string | null;
+    observed_pattern?: string;
+    suggested_actions?: string[];
+  } | null;
+  failed_case_explanation?: {
+    summary?: string;
+    input_observation?: string | null;
+    expected_vs_actual?: string | null;
+    likely_gap?: string | null;
+  } | null;
+  feedback_report?: {
+    summary?: string;
+    likely_causes?: string[];
+    next_steps?: string[];
+  } | null;
 }
 
 // ── Hint ──────────────────────────────────────────────────────────────────

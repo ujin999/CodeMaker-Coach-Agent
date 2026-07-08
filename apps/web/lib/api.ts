@@ -23,6 +23,8 @@ import type {
   SharedSolution,
   SubmissionRequest,
   SubmissionResponse,
+  SubmissionReviewRequest,
+  SubmissionReviewReport,
   TokenResponse,
   UserResponse,
 } from "./types";
@@ -152,6 +154,11 @@ export const submissionsApi = {
     request<SubmissionResponse>(`/api/submissions/${submissionId}`),
   listForProblem: (problemId: string) =>
     request<SubmissionResponse[]>(`/api/submissions/problem/${problemId}`),
+  review: (body: SubmissionReviewRequest) =>
+    request<SubmissionReviewReport>("/api/submissions/review", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Hints ────────────────────────────────────────────────────────────────────

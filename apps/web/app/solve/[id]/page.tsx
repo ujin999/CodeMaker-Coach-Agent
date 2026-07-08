@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ApiError, problemsApi, submissionsApi } from "@/lib/api";
 import { LANGUAGES } from "@/lib/constants";
-import type { SubmissionResponse, SubmissionStatus, ProblemDetail } from "@/lib/types";
+import type { SubmissionResponse, SubmissionStatus, ProblemDetail, SubmissionReviewReport } from "@/lib/types";
 import CodeEditor from "@/components/CodeEditor";
 import ConfirmModal from "@/components/ConfirmModal";
 import DifficultyBadge from "@/components/DifficultyBadge";
@@ -96,6 +96,9 @@ export default function SolvePage({ params }: { params: { id: string } }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const [reviewReport, setReviewReport] = useState<SubmissionReviewReport | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+
   const [revealOpen, setRevealOpen] = useState(false);
   const [revealCode, setRevealCode] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
@@ -148,6 +151,26 @@ export default function SolvePage({ params }: { params: { id: string } }) {
             stopPolling();
             setSubmitting(false);
             submissionsApi.listForProblem(problemId).then(setHistory).catch(() => {});
+
+            // AC가 아닌 경우 AI 오답 분석 자동 실행
+            if (latest.status !== "AC" && problem) {
+              setReviewReport(null);
+              setReviewing(true);
+              submissionsApi.review({
+                problem_id: problemId,
+                problem_title: problem.title,
+                problem_difficulty: problem.difficulty,
+                problem_algorithm: problem.algorithm,
+                problem_statement: problem.statement,
+                user_code: activeCode,
+                language,
+                result_type: latest.status,
+                include_concept_context: false,
+              })
+                .then(setReviewReport)
+                .catch(() => {})
+                .finally(() => setReviewing(false));
+            }
           }
         } catch {
           stopPolling();
@@ -371,6 +394,68 @@ export default function SolvePage({ params }: { params: { id: string } }) {
               )}
               {submission.memory_kb !== null && (
                 <span className="ml-2 text-muted">{submission.memory_kb}KB</span>
+              )}
+            </div>
+          )}
+
+          {/* AI 오답 분석 리포트 */}
+          {reviewing && (
+            <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-surface-2 p-3 text-sm text-muted">
+              <span className="animate-spin">⏳</span> AI가 오답 원인을 분석 중입니다...
+            </div>
+          )}
+          {reviewReport && !reviewing && (
+            <div className="mt-3 flex flex-col gap-3 rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 text-sm">
+              <p className="font-semibold text-orange-300">🔍 AI 오답 분석 리포트</p>
+
+              <p className="text-white">{reviewReport.summary}</p>
+
+              {reviewReport.failed_case_explanation?.expected_vs_actual && (
+                <div className="rounded-md border border-border bg-surface-2 p-3">
+                  <p className="text-xs font-medium text-muted mb-1">실패 케이스</p>
+                  <p className="text-white">{reviewReport.failed_case_explanation.expected_vs_actual}</p>
+                  {reviewReport.failed_case_explanation.likely_gap && (
+                    <p className="mt-1 text-yellow-300">{reviewReport.failed_case_explanation.likely_gap}</p>
+                  )}
+                </div>
+              )}
+
+              {reviewReport.error_diagnosis?.suggested_focus && reviewReport.error_diagnosis.suggested_focus.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted mb-1">점검 포인트</p>
+                  <ul className="list-inside list-disc space-y-0.5 text-muted">
+                    {reviewReport.error_diagnosis.suggested_focus.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {reviewReport.complexity_analysis?.suggested_actions && reviewReport.complexity_analysis.suggested_actions.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted mb-1">
+                    복잡도 분석
+                    {reviewReport.complexity_analysis.risk_level === "high" && (
+                      <span className="ml-1 text-red-400">(위험 🔴)</span>
+                    )}
+                  </p>
+                  <ul className="list-inside list-disc space-y-0.5 text-muted">
+                    {reviewReport.complexity_analysis.suggested_actions.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {reviewReport.feedback_report?.next_steps && reviewReport.feedback_report.next_steps.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted mb-1">추천 다음 단계</p>
+                  <ul className="list-inside list-disc space-y-0.5 text-muted">
+                    {reviewReport.feedback_report.next_steps.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
