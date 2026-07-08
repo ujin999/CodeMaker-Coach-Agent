@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -42,6 +42,7 @@ class ProblemDetailResponse(BaseModel):
     generation_mode: Optional[str] = None
     seed: Optional[str] = None
     variant_id: Optional[str] = None
+    status: str = "active"
 
     model_config = {"from_attributes": True}
 
@@ -146,7 +147,7 @@ class CommentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Problem Report (FR-34) ────────────────────────────────────────────────────
+# ── Problem Report / HITL (FR-34) ─────────────────────────────────────────────
 
 class ProblemReportRequest(BaseModel):
     reason: str = Field(min_length=1, description="문제 품질 신고 사유")
@@ -157,8 +158,56 @@ class ProblemReportResponse(BaseModel):
     problem_id: str
     reason: str
     created_at: datetime
+    report_count: int = Field(description="이 문제의 누적 신고 수(취소 반영, 신고 직후 기준)")
+    status: str = Field(description="신고 반영 후 문제 상태 (active | under_review)")
 
     model_config = {"from_attributes": True}
+
+
+class ProblemReportStatusResponse(BaseModel):
+    """현재 사용자 기준 신고 상태 조회 — 신고/취소 토글 UI에 사용."""
+    problem_id: str
+    report_count: int
+    reported_by_me: bool
+    status: str
+
+
+class FlaggedReportSummary(BaseModel):
+    user_id: int
+    reason: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class FlaggedProblemResponse(BaseModel):
+    """관리자용 검토 대기 문제 목록 항목."""
+    id: str
+    title: str
+    difficulty: str
+    algorithm: List[str]
+    statement: str
+    status: str
+    report_count: int
+    reports: List[FlaggedReportSummary]
+    created_at: datetime
+
+
+class ProblemReviewRequest(BaseModel):
+    """관리자의 HITL 조치 요청 — dismiss(기각/복구) | remove(소프트 삭제) | edit(수정 후 복구)."""
+    action: Literal["dismiss", "remove", "edit"]
+    title: Optional[str] = None
+    statement: Optional[str] = None
+    difficulty: Optional[str] = None
+    constraints: Optional[List[str]] = None
+    sample_input: Optional[str] = None
+    sample_output: Optional[str] = None
+
+
+class ProblemReviewResponse(BaseModel):
+    id: str
+    status: str
+    report_count: int
 
 
 # ── Submission Review (제출 리뷰) ─────────────────────────────────────────────

@@ -108,7 +108,9 @@ export default function SolvePage({ params }: { params: { id: string } }) {
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
-  const [reportSent, setReportSent] = useState(false);
+  const [reportedByMe, setReportedByMe] = useState(false);
+  const [reportCount, setReportCount] = useState(0);
+  const [reportBusy, setReportBusy] = useState(false);
 
   useEffect(() => {
     problemsApi
@@ -120,6 +122,13 @@ export default function SolvePage({ params }: { params: { id: string } }) {
     submissionsApi
       .listForProblem(problemId)
       .then(setHistory)
+      .catch(() => {});
+    problemsApi
+      .reportStatus(problemId)
+      .then((s) => {
+        setReportedByMe(s.reported_by_me);
+        setReportCount(s.report_count);
+      })
       .catch(() => {});
   }, [problemId]);
 
@@ -208,13 +217,30 @@ export default function SolvePage({ params }: { params: { id: string } }) {
 
   async function handleReport() {
     if (!reportReason.trim()) return;
+    setReportBusy(true);
     try {
-      await problemsApi.report(problemId, { reason: reportReason.trim() });
-      setReportSent(true);
+      const res = await problemsApi.report(problemId, { reason: reportReason.trim() });
+      setReportedByMe(true);
+      setReportCount(res.report_count);
       setReportOpen(false);
       setReportReason("");
     } catch {
       // 신고 실패는 조용히 무시 — 학습 흐름을 막지 않는다.
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  async function handleCancelReport() {
+    setReportBusy(true);
+    try {
+      await problemsApi.cancelReport(problemId);
+      setReportedByMe(false);
+      setReportCount((c) => Math.max(0, c - 1));
+    } catch {
+      // 취소 실패는 조용히 무시 — 학습 흐름을 막지 않는다.
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -333,12 +359,18 @@ export default function SolvePage({ params }: { params: { id: string } }) {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => setReportOpen(true)}
-                className="text-xs text-muted hover:text-white"
-              >
-                {reportSent ? "신고 접수됨 ✓" : "문제 품질 신고하기"}
-              </button>
+              <div className="flex w-full items-center justify-between">
+                <button
+                  onClick={reportedByMe ? handleCancelReport : () => setReportOpen(true)}
+                  disabled={reportBusy}
+                  className="text-xs text-muted hover:text-white disabled:opacity-50"
+                >
+                  {reportedByMe ? "신고 취소하기" : "문제 품질 신고하기"}
+                </button>
+                {reportCount > 0 && (
+                  <span className="text-xs text-muted">신고 {reportCount}건</span>
+                )}
+              </div>
             )}
           </div>
         </div>

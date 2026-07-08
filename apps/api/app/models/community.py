@@ -90,9 +90,15 @@ class Like(Base):
 
 
 class ProblemReport(Base):
-    """품질 낮은 생성 문제 신고 (FR-34)."""
+    """품질 낮은 생성 문제 신고 (FR-34).
+
+    (user_id, problem_id) unique — 한 사용자는 같은 문제를 한 번만 신고할 수 있고,
+    신고 취소는 이 행을 삭제하는 것으로 처리한다. 신고 수는 이 테이블의 행 수를
+    그대로 누적치로 쓴다(별도 카운터 컬럼 없음 — 동기화 버그 방지).
+    """
 
     __tablename__ = "problem_reports"
+    __table_args__ = (UniqueConstraint("user_id", "problem_id", name="uq_problem_report"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

@@ -38,6 +38,8 @@ class Problem(Base):
     # reference_solution은 절대 API 응답에 포함하지 않음 (FR-20, 정책 1)
     reference_solution: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # active | under_review(신고 누적 임계치 초과, HITL 대기) | removed(관리자 소프트 삭제)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", server_default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

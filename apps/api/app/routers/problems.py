@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from agent.schemas import GeneratedProblem, HintBundle, ReferenceSolution, TestcaseBundle
@@ -16,18 +17,24 @@ from app.models.problem import Problem, TestCase, Hint
 from app.schemas.domain import (
     ProblemReportRequest,
     ProblemReportResponse,
+    ProblemReportStatusResponse,
     ProblemSummaryResponse,
     ProblemDetailResponse,
     RevealSolutionRequest,
     RevealSolutionResponse,
 )
 from app.schemas.problems import ProblemGenerateRequest
+from config.settings import settings
 
 router = APIRouter(prefix="/api/problems", tags=["problems"])
 
 # 검증 실패 시 재생성을 허용하는 라우팅 액션 (BUILD_PLAN Step 3.5)
 _REGENERATE_ACTIONS = {"regenerate_problem", "regenerate_testcases", "revise_hints"}
 _MAX_GENERATION_ATTEMPTS = 3
+
+
+def _report_count(db: Session, problem_id: str) -> int:
+    return db.query(ProblemReport).filter(ProblemReport.problem_id == problem_id).count()
 
 
 def _dep_gateway() -> AgentGateway:
@@ -218,9 +225,12 @@ def list_problems(
 
     query = db.query(Problem)
 
-    # mine 필터
+    # mine 필터 — 본인 문제는 신고/검토 상태와 무관하게 전부 보여준다.
+    # 공개 카탈로그(mine=false)는 active 상태만 노출한다 (신고 누적으로 under_review/removed된 문제는 숨김).
     if mine:
         query = query.filter(Problem.created_by == user_id)
+    else:
+        query = query.filter(Problem.status == "active")
 
     # 알고리즘 필터 — algorithm 컬럼은 ARRAY(String)
     if algorithm:
@@ -337,13 +347,87 @@ def report_problem(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> ProblemReportResponse:
-    """품질 낮은 생성 문제 신고 (FR-34)."""
+    """품질 낮은 생성 문제 신고 (FR-34).
+
+    한 사용자는 같은 문제를 한 번만 신고할 수 있다 (중복 신고는 409). 누적 신고 수가
+    settings.problem_report_threshold 이상이면 문제를 under_review로 전환해 공개
+    카탈로그에서 숨기고, 관리자의 HITL 검토(기각/삭제/수정)를 기다린다.
+    """
     problem = db.get(Problem, problem_id)
     if not problem:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
 
     report = ProblemReport(user_id=user_id, problem_id=problem_id, reason=body.reason)
     db.add(report)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="이미 이 문제를 신고했습니다. 신고를 취소하려면 DELETE로 요청하세요.",
+        )
     db.refresh(report)
-    return ProblemReportResponse.model_validate(report)
+
+    count = _report_count(db, problem_id)
+    if count >= settings.problem_report_threshold and problem.status == "active":
+        problem.status = "under_review"
+        db.commit()
+
+    return ProblemReportResponse(
+        id=report.id,
+        problem_id=report.problem_id,
+        reason=report.reason,
+        created_at=report.created_at,
+        report_count=count,
+        status=problem.status,
+    )
+
+
+@router.delete("/{problem_id}/report", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_report(
+    problem_id: str,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> None:
+    """내 신고 취소 (FR-34). 이미 under_review로 넘어간 검토 대기열에서는 자동으로
+    빠지지 않는다 — 관리자가 검토를 시작한 뒤에는 사람이 명시적으로 처리해야 한다."""
+    problem = db.get(Problem, problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
+
+    report = (
+        db.query(ProblemReport)
+        .filter(ProblemReport.problem_id == problem_id, ProblemReport.user_id == user_id)
+        .first()
+    )
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="신고 내역을 찾을 수 없습니다.")
+
+    db.delete(report)
+    db.commit()
+
+
+@router.get("/{problem_id}/report", response_model=ProblemReportStatusResponse)
+def get_report_status(
+    problem_id: str,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> ProblemReportStatusResponse:
+    """신고/취소 토글 UI용 — 누적 신고 수와 내 신고 여부를 조회한다."""
+    problem = db.get(Problem, problem_id)
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
+
+    reported_by_me = (
+        db.query(ProblemReport)
+        .filter(ProblemReport.problem_id == problem_id, ProblemReport.user_id == user_id)
+        .first()
+        is not None
+    )
+    return ProblemReportStatusResponse(
+        problem_id=problem_id,
+        report_count=_report_count(db, problem_id),
+        reported_by_me=reported_by_me,
+        status=problem.status,
+    )

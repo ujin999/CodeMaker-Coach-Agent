@@ -15,6 +15,7 @@ import type {
   ProblemListQuery,
   ProblemReportRequest,
   ProblemReportResponse,
+  ProblemReportStatusResponse,
   ProblemSummary,
   RegisterRequest,
   RevealSolutionRequest,
@@ -142,6 +143,10 @@ export const problemsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  cancelReport: (problemId: string) =>
+    request<void>(`/api/problems/${problemId}/report`, { method: "DELETE" }),
+  reportStatus: (problemId: string) =>
+    request<ProblemReportStatusResponse>(`/api/problems/${problemId}/report`),
 };
 
 // ── Submissions ──────────────────────────────────────────────────────────────

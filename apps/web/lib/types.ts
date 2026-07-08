@@ -79,12 +79,10 @@ export interface ProblemDetail {
   seed?: string | null;
   generation_mode?: string | null;
   variant_id?: string | null;
+  status?: "active" | "under_review" | "removed";
 }
 
-// GET /api/problems 목록 조회 쿼리.
-// 참고: 현재 백엔드는 "내가 만든 문제"만 반환하며 algorithm/difficulty/q 필터는
-// 아직 서버에 구현되어 있지 않다 (apps/web/README.md 확장 계약 섹션 참조).
-// 프론트는 이 파라미터들을 함께 보내되, 서버가 무시하는 경우 클라이언트 사이드로 필터링한다.
+// GET /api/problems 목록 조회 쿼리 — algorithm/difficulty/q/sort/mine 전부 서버사이드로 처리된다.
 export interface ProblemListQuery {
   algorithm?: string;
   difficulty?: string;
@@ -114,6 +112,15 @@ export interface ProblemReportResponse {
   problem_id: string;
   reason: string;
   created_at: string;
+  report_count: number;
+  status: "active" | "under_review" | "removed";
+}
+
+export interface ProblemReportStatusResponse {
+  problem_id: string;
+  report_count: number;
+  reported_by_me: boolean;
+  status: "active" | "under_review" | "removed";
 }
 
 // ── Submission ────────────────────────────────────────────────────────────

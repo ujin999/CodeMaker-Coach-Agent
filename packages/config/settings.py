@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # 프론트엔드 배포 주소를 콤마로 구분해 등록한다 (CORS 허용 origin).
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:10001,http://127.0.0.1:10001"
 
+    # ── 문제 신고 / HITL (FR-34) ───────────────────
+    # 누적 신고 수가 이 값 이상이면 문제가 under_review 상태가 되어 공개 카탈로그에서
+    # 숨겨지고, 관리자(is_admin)의 검토(기각/삭제/수정)를 기다린다.
+    problem_report_threshold: int = 5
+
 
 @lru_cache
 def get_settings() -> Settings:
