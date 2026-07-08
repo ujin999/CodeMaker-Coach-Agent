@@ -70,54 +70,65 @@ CodeMaker-Coach-Agent/
 
 ## 실행 방법
 
+인프라(postgres/qdrant/judge0/neo4j)뿐 아니라 **백엔드(api)와 프론트엔드(web)도 모두
+`infra/docker-compose.yml`이 각자의 `Dockerfile`로 빌드해서 컨테이너로 띄운다.** 로컬에서
+`uvicorn`/`npm run dev`를 직접 실행하는 별도 구성이 아니다.
+
 ### 1. 환경변수
 
-루트에 `.env` 파일을 만들고 최소한 아래 값을 채운다 (예시는 `packages/config/settings.py` 참조).
+리포지토리 루트에 `.env` 파일을 만든다 (`packages/config/settings.py` 참조). 최소한 아래 값을 채운다.
 
 ```env
 LLM_PROVIDER=claude
 ANTHROPIC_API_KEY=...
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/codemaker
-JWT_SECRET_KEY=...            # 반드시 설정 — 비어 있으면 서버가 기동하지 않는다
-JUDGE0_URL=http://localhost:2358
-QDRANT_URL=http://localhost:6333
-NEO4J_URI=bolt://localhost:7687
+JWT_SECRET_KEY=...            # 반드시 설정 — 비어 있으면 API 컨테이너가 기동을 거부한다
+NEXT_PUBLIC_API_BASE_URL=http://localhost:10000   # 브라우저가 접속할 API 주소, 프론트 빌드 시점에 박힘
+CORS_ORIGINS=http://localhost:10001,...           # 위 프론트 주소를 반드시 포함해야 함
 ```
 
-### 2. Docker Compose로 인프라 기동
+> `DATABASE_URL`/`QDRANT_URL`/`JUDGE0_URL`은 컨테이너 간 통신용으로 compose가 자동
+> 오버라이드하므로 `.env`에 로컬 주소를 적어도 무방하다.
+
+### 2. 전체 스택 기동 (postgres, qdrant, judge0, api, web)
 
 ```bash
-cd infra
-docker compose up -d postgres qdrant judge0
-# Graph RAG(개인화)까지 쓰려면
-docker compose --profile neo4j up -d neo4j
+# 리포지토리 루트에서 실행 — 최초 실행/코드 변경 후에는 --build 포함
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
+
+# 로그 확인
+docker compose -f infra/docker-compose.yml logs -f api web
+
+# Graph RAG(개인화, neo4j)까지 포함하려면
+docker compose -f infra/docker-compose.yml --profile graphrag up -d
 ```
 
-### 3. 백엔드 (FastAPI)
+기동 후 프론트는 `http://localhost:10001`, API 상태는 `http://localhost:10000/health`로 확인한다.
+DB 마이그레이션(`alembic upgrade head`)은 `api` 컨테이너가 기동할 때마다 자동으로 실행된다.
+
+인프라만 띄우고 API/Web은 로컬에서 직접 돌리며 개발하고 싶다면:
 
 ```bash
+docker compose -f infra/docker-compose.yml up -d postgres qdrant
 PYTHONPATH=packages:apps/api uv run alembic upgrade head
 PYTHONPATH=packages:apps/api uv run uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
+# 별도 터미널
+cd apps/web && npm install && npm run dev
 ```
 
-### 4. 프론트엔드 (Next.js)
+> macOS/Apple Silicon에서는 Judge0의 isolate 샌드박스가 정상 동작하지 않는다 (cgroup v1 +
+> linux/amd64 요구). 상세 원인과 대응은 `infra/README.md` 참조.
 
-```bash
-cd apps/web
-npm install
-cp .env.local.example .env.local   # NEXT_PUBLIC_API_BASE_URL 확인
-npm run dev
-```
-
-### 5. 테스트 실행
+### 3. 테스트 실행
 
 ```bash
 uv run python -m pytest
 ```
 
 > 테스트는 `ENV=test` 기준 `FakeStructuredChatModel`(LLM 목)과 `AGENT_MODE=stub` 게이트웨이를 사용해
-> 외부 API 호출 없이 동작한다. 단, DB/Judge0 등 인프라는 실제 연결을 사용하므로 `infra/docker-compose.yml`
-> 컨테이너가 떠 있어야 한다.
+> 외부 API 호출 없이 동작한다. 단, DB/Judge0 등 인프라는 실제 연결을 사용하므로 위 compose 스택이
+> 떠 있어야 한다.
+
+전체 서비스 구성/포트/제약 사항은 `infra/README.md`에 더 자세히 정리되어 있다.
 
 ---
 
