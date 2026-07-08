@@ -124,7 +124,8 @@ export type SubmissionStatus =
   | "WA"
   | "TLE"
   | "RE"
-  | "MLE";
+  | "MLE"
+  | "JUDGE_ERROR";
 
 export interface SubmissionRequest {
   code: string;

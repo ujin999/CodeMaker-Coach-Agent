@@ -73,19 +73,15 @@ async def request_hint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
 
     progress = _get_or_create_progress(user_id, body.problem_id, db)
-    
+
     # Enforce allowed_level server-side!
     body.allowed_level = progress.allowed_level
 
-    # DB에서 힌트 조회
-    hints = (
-        db.query(Hint)
-        .filter(Hint.problem_id == body.problem_id)
-        .order_by(Hint.level)
-        .all()
-    )
+    # 힌트가 이 문제에 하나도 저장되어 있지 않은지 확인 (레벨 무관, 존재 여부만).
+    # 실제로 서비스에 넘길 힌트는 아래에서 allowed_level 이하로만 다시 조회한다.
+    has_any_hint = db.query(Hint.id).filter(Hint.problem_id == body.problem_id).first() is not None
 
-    if not hints:
+    if not has_any_hint:
         # 힌트가 없으면 Agent로 생성 후 저장
         from agent.schemas import GeneratedProblem, HintBlueprint
         generated = GeneratedProblem(
@@ -126,12 +122,14 @@ async def request_hint(
             ))
         db.commit()
 
-        hints = (
-            db.query(Hint)
-            .filter(Hint.problem_id == body.problem_id)
-            .order_by(Hint.level)
-            .all()
-        )
+    # 허용 단계 이하 힌트만 조회한다 — 상위 단계 힌트는 애초에 조회 대상에서
+    # 물리적으로 제외하여, 이후 서비스 계층 필터링에만 의존하지 않는다 (FR-18, NFR-4).
+    hints = (
+        db.query(Hint)
+        .filter(Hint.problem_id == body.problem_id, Hint.level <= progress.allowed_level)
+        .order_by(Hint.level)
+        .all()
+    )
 
     # Convert DB Hint models to agent.schemas.Hint objects
     from agent.schemas import Hint as AgentHint
