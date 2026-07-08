@@ -175,3 +175,38 @@ def test_validation_retry_loop(monkeypatch):
     assert call_count == 3
     assert res.validation_report.passed is False
     assert res.safe_to_show is False
+
+
+def test_seed_diversity_and_stability(monkeypatch):
+    """Test seed parameters: different seeds produce different outputs, same seed is stable."""
+    # Since we are in ENV=test (or mock mode), generate_problem calls FakeStructuredChatModel.
+    # In FakeStructuredChatModel, we inject seed-specific p_id and title.
+    import os
+    os.environ["ENV"] = "test"
+
+    inp1 = ProblemGenerationPackageInput(algorithm="binary_search", difficulty="easy", seed="seed_A")
+    inp2 = ProblemGenerationPackageInput(algorithm="binary_search", difficulty="easy", seed="seed_B")
+    inp3 = ProblemGenerationPackageInput(algorithm="binary_search", difficulty="easy", seed="seed_A")
+
+    res1 = generate_problem_package_sync(inp1)
+    res2 = generate_problem_package_sync(inp2)
+    res3 = generate_problem_package_sync(inp3)
+
+    # 1. Check metadata fields present
+    assert res1.generation_mode == "template_fallback"
+    assert res1.seed == "seed_A"
+    assert res1.variant_id in ["budget_cap", "cable_cutting", "router_installation", "immigration_time", "lower_bound_count"]
+
+    # 2. Different seeds -> different problem id, title, and statement (semantic diversity)
+    assert res1.problem_id != res2.problem_id
+    assert res1.generated_problem.title != res2.generated_problem.title
+    assert res1.generated_problem.statement != res2.generated_problem.statement
+    assert res1.variant_id != res2.variant_id
+
+    # 3. Same seed -> stable (identical problem id, title, statement, and variant)
+    assert res1.problem_id == res3.problem_id
+    assert res1.generated_problem.title == res3.generated_problem.title
+    assert res1.generated_problem.statement == res3.generated_problem.statement
+    assert res1.variant_id == res3.variant_id
+
+

@@ -11,6 +11,9 @@ class ProblemGenerationInput(BaseModel):
     learning_goal: Optional[str] = Field(default=None, description="Learning objective, e.g. parametric search, boundary conditions")
     user_level: Optional[str] = Field(default=None, description="Skill level of the user")
     recent_weaknesses: List[str] = Field(default_factory=list, description="List of user's recent weak concepts")
+    seed: Optional[str] = Field(default=None, description="Random seed or nonce to ensure unique variant generation")
+    avoid_problem_ids: List[str] = Field(default_factory=list, description="List of problem IDs to avoid repeating")
+    force_new: bool = Field(default=False, description="Force generation of a new problem even if cache exists")
 
 
 class HintBlueprint(BaseModel):
@@ -540,6 +543,9 @@ class ProblemGenerationPackage(BaseModel):
     concept_context: List[str] = Field(default_factory=list)
     summary: str = ""
     safe_to_show: bool = True
+    generation_mode: Optional[str] = "live"
+    seed: Optional[str] = None
+    variant_id: Optional[str] = None
 
     @model_validator(mode="after")
     def validate_package(self) -> "ProblemGenerationPackage":
@@ -592,6 +598,9 @@ class ProblemGenerationPackageInput(BaseModel):
     include_hints: bool = True
     include_concept_context: bool = True
     max_validation_attempts: int = 2
+    seed: Optional[str] = None
+    avoid_problem_ids: List[str] = Field(default_factory=list)
+    force_new: bool = False
 
     @field_validator("max_validation_attempts")
     @classmethod

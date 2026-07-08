@@ -36,10 +36,12 @@ def generate_hints(
     )
     
     result = structured_model.invoke(prompt_messages)
+    result.problem_id = problem.problem_id
     
     # Enforce validation rules and allowed_level constraints on the output bundle
     filtered_hints = []
     for hint in result.hints:
+        hint.problem_id = problem.problem_id
         if hint.reveals_core_code:
             continue
         if hint.level > allowed_level:

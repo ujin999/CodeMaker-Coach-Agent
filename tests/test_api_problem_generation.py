@@ -172,3 +172,107 @@ def test_report_problem():
         headers=headers,
     )
     assert missing.status_code == 404
+
+
+def test_api_generate_problem_with_seed():
+    """Verify POST /api/problems/generate accepts seed, returns metadata, and ensures diversity/stability."""
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+
+    algo = _unique_algorithm("api_seed_test")
+    
+    # 1. First generation with seed_A
+    resp1 = client.post(
+        "/api/problems/generate",
+        json={"algorithm": algo, "seed": "seed_A"},
+        headers=headers,
+    )
+    assert resp1.status_code == 201
+    body1 = resp1.json()
+    assert body1["seed"] == "seed_A"
+    assert body1["generation_mode"] == "template_fallback"
+    assert body1["variant_id"] == "var_seed_A"
+    assert "reference_solution" not in body1
+    assert "code" not in body1
+
+    # 2. Second generation with seed_B (should return a different problem ID and title)
+    resp2 = client.post(
+        "/api/problems/generate",
+        json={"algorithm": algo, "seed": "seed_B"},
+        headers=headers,
+    )
+    assert resp2.status_code == 201
+    body2 = resp2.json()
+    assert body2["seed"] == "seed_B"
+    assert body2["id"] != body1["id"]
+    assert body2["title"] != body1["title"]
+    assert body2["variant_id"] == "var_seed_B"
+
+    # 3. Third generation with seed_A (should return the same problem as body1 due to DB caching of the exact same problem_id)
+    resp3 = client.post(
+        "/api/problems/generate",
+        json={"algorithm": algo, "seed": "seed_A"},
+        headers=headers,
+    )
+    assert resp3.status_code == 201
+    body3 = resp3.json()
+    assert body3["id"] == body1["id"]
+    assert body3["title"] == body1["title"]
+    assert body3["variant_id"] == "var_seed_A"
+
+
+def test_api_generate_problem_force_new():
+    """Verify that force_new=True does not silently return an existing DB row."""
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+    algo = _unique_algorithm("force_new_check")
+
+    # 1. Generate once
+    resp1 = client.post(
+        "/api/problems/generate",
+        json={"algorithm": algo, "seed": "seed_A"},
+        headers=headers,
+    )
+    assert resp1.status_code == 201
+    body1 = resp1.json()
+
+    # 2. Try to generate again with force_new=True (should raise HTTP 409 Conflict because same content exists, preventing silent reuse)
+    resp2 = client.post(
+        "/api/problems/generate",
+        json={"algorithm": algo, "seed": "seed_A", "force_new": True},
+        headers=headers,
+    )
+    assert resp2.status_code == 409
+
+
+def test_api_generate_problem_variants_content():
+    """Verify that generated variants match variant keywords (e.g. cable_cutting)."""
+    os.environ["AGENT_MODE"] = "stub"
+    client = TestClient(app)
+    headers = _auth_headers(client)
+
+    # Find a seed that results in "cable_cutting" variant for "binary_search"
+    # Or we can just check what variant gets selected for a few seeds and check title/statement keywords.
+    for seed in ["seed_a", "seed_b", "seed_c", "seed_d", "seed_e"]:
+        resp = client.post(
+            "/api/problems/generate",
+            json={"algorithm": "binary_search", "seed": seed},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        variant_id = body["variant_id"]
+        title = body["title"]
+        statement = body["statement"]
+
+        if variant_id == "cable_cutting":
+            assert any(kw in title or kw in statement for kw in ["랜선", "자르기", "케이블", "나무"])
+        elif variant_id == "router_installation":
+            assert any(kw in title or kw in statement for kw in ["공유기", "설치", "거리"])
+        elif variant_id == "immigration_time":
+            assert any(kw in title or kw in statement for kw in ["심사", "입국심사", "시간"])
+
+
+

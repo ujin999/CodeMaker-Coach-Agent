@@ -151,7 +151,10 @@ class LiveAgentGateway:
             recent_weaknesses=request.recent_weaknesses,
             min_cases=request.min_cases,
             allowed_hint_level=request.allowed_hint_level,
-            include_hints=request.include_hints
+            include_hints=request.include_hints,
+            seed=request.seed,
+            avoid_problem_ids=request.avoid_problem_ids,
+            force_new=request.force_new
         )
 
         package = await generate_problem_package(pkg_input)
@@ -177,8 +180,12 @@ class LiveAgentGateway:
             reference_solution=ref_dict,
             validation_report=rep_dict,
             routing_decision=routing_decision,
-            gateway_mode="live"
+            gateway_mode="live",
+            generation_mode=package.generation_mode,
+            seed=package.seed,
+            variant_id=package.variant_id
         )
+
 
 
 class StubAgentGateway:
@@ -297,18 +304,48 @@ class StubAgentGateway:
         request: ProblemGenerateRequest,
     ) -> ProblemGenerateResponse:
         algo = request.algorithm
+        p_id = f"stub-{algo}-001"
+        if request.seed:
+            clean_seed = "".join(c for c in request.seed if c.isalnum() or c == "_")[:8]
+            p_id = f"stub-{algo}_{clean_seed}-001"
+
+        from agent.variants import select_variant
+        variant = select_variant(algo, request.seed)
+
+        title = f"[STUB] {algo} 연습 문제"
+        if request.seed:
+            title += f" (Seed: {request.seed})"
+        statement = f"정수 배열에서 두 수의 합이 target이 되는 두 인덱스를 찾으시오. (STUB) Seed: {request.seed or 'none'}"
+        input_format = "첫 줄에 N과 target, 둘째 줄에 N개의 정수"
+        output_format = "두 인덱스(오름차순), 없으면 -1"
+        constraints = ["1 <= N <= 100000", "|a_i| <= 10^9"]
+        sample_input = "4 9\n2 7 11 15"
+        sample_output = "0 1"
+
+        if variant:
+            tmpl = variant["stub_template"]
+            title = tmpl["title"]
+            if request.seed:
+                title += f" (Seed: {request.seed})"
+            statement = tmpl["statement"]
+            input_format = tmpl["input_format"]
+            output_format = tmpl["output_format"]
+            constraints = tmpl["constraints"]
+            sample_input = tmpl.get("sample_input")
+            sample_output = tmpl.get("sample_output")
+
         generated_problem = {
-            "problem_id": f"stub-{algo}-001",
-            "title": f"[STUB] {algo} 연습 문제",
+            "problem_id": p_id,
+            "title": title,
             "difficulty": request.difficulty,
             "algorithm": [algo],
             "learning_goal": request.learning_goal or "기본 로직 이해",
-            "statement": "정수 배열에서 두 수의 합이 target이 되는 두 인덱스를 찾으시오. (STUB)",
-            "input_format": "첫 줄에 N과 target, 둘째 줄에 N개의 정수",
-            "output_format": "두 인덱스(오름차순), 없으면 -1",
-            "constraints": ["1 <= N <= 100000", "|a_i| <= 10^9"],
-            "sample_input": "4 9\n2 7 11 15",
-            "sample_output": "0 1",
+            "statement": statement,
+            "input_format": input_format,
+            "output_format": output_format,
+            "constraints": constraints,
+            "sample_input": sample_input,
+            "sample_output": sample_output,
             "expected_time_complexity": "O(N)",
             "hint_blueprint": {
                 "intended_algorithm": [algo],
@@ -323,12 +360,12 @@ class StubAgentGateway:
             }
         }
         testcase_bundle = {
-            "problem_id": f"stub-{algo}-001",
+            "problem_id": p_id,
             "testcases": [
                 {
                     "name": "sample-1",
-                    "input_data": "4 9\n2 7 11 15",
-                    "expected_output": "0 1",
+                    "input_data": sample_input or "4 9\n2 7 11 15",
+                    "expected_output": sample_output or "0 1",
                     "visibility": "sample",
                     "purpose": "기본 동작 확인 (STUB)",
                     "calculation_steps": "기본 케이스 검증 단계"
@@ -340,7 +377,7 @@ class StubAgentGateway:
             "verification_status": "passed"
         }
         reference_solution = {
-            "problem_id": f"stub-{algo}-001",
+            "problem_id": p_id,
             "language": "python",
             "code": "# STUB reference solution\nprint(0, 1)",
             "generator_name": "stub_generator",
@@ -367,7 +404,10 @@ class StubAgentGateway:
             reference_solution=reference_solution,
             validation_report=validation_report,
             routing_decision=routing_decision,
-            gateway_mode="stub"
+            gateway_mode="stub",
+            generation_mode="template_fallback",
+            seed=request.seed,
+            variant_id=variant["variant_id"] if variant else (f"var_{request.seed}" if request.seed else None)
         )
 
 

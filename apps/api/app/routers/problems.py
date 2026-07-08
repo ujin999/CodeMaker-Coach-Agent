@@ -48,6 +48,12 @@ async def generate_problem(
     안전하게 사용자에게 노출할 수 없는 결과는 DB에 저장하지 않는다.
     생성된 힌트는 DB에 저장되며 RAG로 서빙된다 (FR-5).
     """
+    import os
+    import uuid
+    # If seed is not sent by frontend, generate one to ensure diversity (only in non-stub/non-test mode)
+    if not spec.seed and os.getenv("AGENT_MODE") != "stub" and os.getenv("ENV") != "test":
+        spec.seed = uuid.uuid4().hex
+
     package = None
     for _ in range(_MAX_GENERATION_ATTEMPTS):
         package = await gateway.generate_problem_package(spec)
@@ -78,12 +84,38 @@ async def generate_problem(
     )
 
     # DB 저장
-    if db.get(Problem, generated.problem_id):
-        # 동일 ID가 이미 있으면 재생성된 결과를 덮어쓰지 않고 그냥 반환
-        problem_orm = db.get(Problem, generated.problem_id)
-    else:
+    base_id = generated.problem_id
+    suffix_counter = 1
+    unique_id = base_id
+    problem_orm = None
+    while db.get(Problem, unique_id):
+        existing_prob = db.get(Problem, unique_id)
+        if existing_prob.title == generated.title and existing_prob.statement == generated.statement:
+            if spec.force_new:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A problem with the same content already exists.",
+                )
+            else:
+                problem_orm = existing_prob
+                break
+        else:
+            unique_id = f"{base_id}_{suffix_counter}"
+            suffix_counter += 1
+
+    if problem_orm is None:
+        generated.problem_id = unique_id
+        if hint_bundle:
+            hint_bundle.problem_id = unique_id
+            for h in hint_bundle.hints:
+                h.problem_id = unique_id
+        if tc_bundle:
+            tc_bundle.problem_id = unique_id
+        if reference_solution:
+            reference_solution.problem_id = unique_id
+
         problem_orm = Problem(
-            id=generated.problem_id,
+            id=unique_id,
             title=generated.title,
             difficulty=generated.difficulty,
             algorithm=generated.algorithm,
@@ -104,7 +136,7 @@ async def generate_problem(
         # TestCase 저장
         for tc in tc_bundle.testcases:
             db.add(TestCase(
-                problem_id=generated.problem_id,
+                problem_id=unique_id,
                 type=tc.visibility,
                 input=tc.input_data,
                 expected_output=tc.expected_output,
@@ -114,7 +146,7 @@ async def generate_problem(
         # Hint 저장 (reveals_core_code 항상 False 강제 — FR-19)
         for h in (hint_bundle.hints if hint_bundle else []):
             db.add(Hint(
-                problem_id=generated.problem_id,
+                problem_id=unique_id,
                 level=h.level,
                 title=h.title,
                 content=h.content,
@@ -127,7 +159,12 @@ async def generate_problem(
         db.commit()
         db.refresh(problem_orm)
 
-    return ProblemDetailResponse.model_validate(problem_orm)
+    # Convert problem_orm to dict and add extra fields, then validate:
+    prob_dict = {c.name: getattr(problem_orm, c.name) for c in problem_orm.__table__.columns}
+    prob_dict["seed"] = package.seed if hasattr(package, "seed") else None
+    prob_dict["generation_mode"] = package.generation_mode if hasattr(package, "generation_mode") else None
+    prob_dict["variant_id"] = package.variant_id if hasattr(package, "variant_id") else None
+    return ProblemDetailResponse.model_validate(prob_dict)
 
 
 @router.get("", response_model=List[ProblemSummaryResponse])

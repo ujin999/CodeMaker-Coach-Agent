@@ -20,6 +20,7 @@ export default function GeneratePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ProblemDetail | null>(null);
+  const [avoidProblemIds, setAvoidProblemIds] = useState<string[]>([]);
 
   function toggleWeakness(value: string) {
     setWeaknesses((prev) =>
@@ -40,8 +41,14 @@ export default function GeneratePage() {
         learning_goal: learningGoal || undefined,
         problem_style: problemStyle || undefined,
         recent_weaknesses: weaknesses,
+        seed: crypto.randomUUID(),
+        force_new: true,
+        avoid_problem_ids: avoidProblemIds,
       });
       setPreview(problem);
+      if (problem?.id) {
+        setAvoidProblemIds((prev) => [...prev, problem.id]);
+      }
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -189,7 +196,20 @@ export default function GeneratePage() {
               <h2 className="text-xl font-bold text-white">{preview.title}</h2>
               <DifficultyBadge difficulty={preview.difficulty} />
             </div>
-            <p className="mt-1 text-sm text-muted">{preview.learning_goal}</p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap text-xs text-muted">
+              <span>ID: {preview.id}</span>
+              {preview.generation_mode && (
+                <span className="rounded-full bg-surface-2 border border-border px-2.5 py-0.5">
+                  Mode: {preview.generation_mode}
+                </span>
+              )}
+              {preview.variant_id && (
+                <span className="rounded-full bg-surface-2 border border-border px-2.5 py-0.5">
+                  Variant: {preview.variant_id}
+                </span>
+              )}
+            </div>
+            <p className="mt-3 text-sm text-muted">{preview.learning_goal}</p>
             <div className="prose prose-invert prose-sm mt-4 max-w-none">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {preview.statement}
