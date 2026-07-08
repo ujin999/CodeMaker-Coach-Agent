@@ -54,6 +54,23 @@ async def generate_problem(
     if not spec.seed and os.getenv("AGENT_MODE") != "stub" and os.getenv("ENV") != "test":
         spec.seed = uuid.uuid4().hex
 
+    # ── Neo4j 기반 개인화 약점 주입 (Phase 4) ──
+    if spec.focus_weaknesses:
+        try:
+            from packages.graphrag import get_user_weaknesses
+            weak_data = get_user_weaknesses(user_id)
+            if weak_data and weak_data.get("weak_concepts"):
+                for wc in weak_data["weak_concepts"]:
+                    concept = wc["concept"]
+                    score = wc["score"]
+                    error_info = ""
+                    if weak_data.get("top_errors"):
+                        error_info = f", main_error: {weak_data['top_errors'][0]['error_type']}"
+                    spec.recent_weaknesses.append(f"{concept} (weight: {score}{error_info})")
+        except Exception as graph_err:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to fetch user weaknesses for problem generation: {graph_err}")
+
     package = None
     for _ in range(_MAX_GENERATION_ATTEMPTS):
         package = await gateway.generate_problem_package(spec)

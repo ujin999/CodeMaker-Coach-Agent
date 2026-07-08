@@ -31,3 +31,6 @@ out/
 *.sh
 !apps/api/docker-entrypoint.sh
 project_context.txt
+
+# 개발 임시 로그 폴더
+문제점/

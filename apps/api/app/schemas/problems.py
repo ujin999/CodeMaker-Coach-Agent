@@ -17,6 +17,7 @@ class ProblemGenerateRequest(BaseModel):
     seed: Optional[str] = None
     avoid_problem_ids: List[str] = Field(default_factory=list)
     force_new: bool = False
+    focus_weaknesses: bool = True
 
 
 class ProblemGenerateResponse(BaseModel):

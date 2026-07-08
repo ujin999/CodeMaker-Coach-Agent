@@ -75,6 +75,26 @@ async def judge_submission(submission_id: int) -> None:
                 ))
                 db.commit()
 
+            # Graph RAG Neo4j 실시간 연동 (Phase 4)
+            try:
+                from packages.graphrag import record_submission_to_graph
+                user_email = submission.user.email if submission.user else f"user_{submission.user_id}@codemaker.io"
+                prob_title = submission.problem.title if submission.problem else "Unknown"
+                prob_diff = submission.problem.difficulty if submission.problem else "medium"
+                prob_algos = submission.problem.algorithm if submission.problem else []
+                
+                record_submission_to_graph(
+                    user_id=submission.user_id,
+                    user_email=user_email,
+                    problem_id=submission.problem_id,
+                    problem_title=prob_title,
+                    problem_difficulty=prob_diff,
+                    problem_algorithms=prob_algos,
+                    status=result["status"],
+                )
+            except Exception as graph_err:
+                logger.warning(f"Failed to record submission to Neo4j graph: {graph_err}")
+
         except Exception:
             logger.exception("채점 워커 오류 (submission_id=%s)", submission_id)
             submission.status = "RE"
