@@ -71,14 +71,32 @@ def infer_code_pattern(user_code: str | None) -> tuple[str | None, list[str]]:
                 has_sort_in_loop = True
                 evidence.append(f"반복문 내부 정렬 감지: '{strip_line}'")
 
+
     has_recursion = False
     func_names = re.findall(r"def\s+(\w+)\s*\(", user_code)
     func_names += re.findall(r"\b\w+\s+(\w+)\s*\([^)]*\)\s*\{", user_code)
     func_names = [f for f in func_names if f not in ["if", "for", "while", "switch", "main"]]
     for fn in func_names:
-        pattern = rf"\b{fn}\s*\("
-        calls = re.findall(pattern, user_code)
-        if len(calls) >= 2:
+        lines = user_code.splitlines()
+        in_fn = False
+        fn_indent = 0
+        calls_in_body = 0
+        for line in lines:
+            if not line.strip():
+                continue
+            if not in_fn:
+                if f"def {fn}" in line or f" {fn}(" in line or f"\t{fn}(" in line or line.startswith(f"{fn}("):
+                    in_fn = True
+                    fn_indent = len(line) - len(line.lstrip())
+            else:
+                current_indent = len(line) - len(line.lstrip())
+                if current_indent <= fn_indent and not line.strip().startswith(("def ", "}", "class ")):
+                    in_fn = False
+                    continue
+                if re.search(rf"\b{fn}\s*\(", line):
+                    calls_in_body += 1
+
+        if calls_in_body >= 1:
             has_recursion = True
             evidence.append(f"재귀 호출 패턴 감지: 함수 '{fn}'가 자기 자신을 호출합니다.")
             break
