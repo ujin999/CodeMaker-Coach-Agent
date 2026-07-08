@@ -13,7 +13,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import DifficultyBadge from "@/components/DifficultyBadge";
 import HintPanel from "@/components/HintPanel";
 
-const TERMINAL_STATUSES: SubmissionStatus[] = ["AC", "WA", "TLE", "RE", "MLE"];
+const TERMINAL_STATUSES: SubmissionStatus[] = ["AC", "WA", "TLE", "RE", "MLE", "JUDGE_ERROR"];
 
 const STATUS_STYLE: Record<SubmissionStatus, string> = {
   PENDING: "text-muted",
@@ -23,6 +23,7 @@ const STATUS_STYLE: Record<SubmissionStatus, string> = {
   TLE: "text-orange-400",
   RE: "text-red-400",
   MLE: "text-orange-400",
+  JUDGE_ERROR: "text-purple-400",
 };
 
 const STATUS_LABEL: Record<SubmissionStatus, string> = {
@@ -33,6 +34,7 @@ const STATUS_LABEL: Record<SubmissionStatus, string> = {
   TLE: "시간 초과",
   RE: "런타임 에러",
   MLE: "메모리 초과",
+  JUDGE_ERROR: "채점 인프라 오류 (다시 시도해주세요)",
 };
 
 const DEFAULT_TEMPLATES: Record<string, string> = {

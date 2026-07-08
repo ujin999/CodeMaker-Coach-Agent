@@ -3,11 +3,18 @@
 JudgeQueue(apps/api/app/queue.py)가 이 모듈의 judge_submission()을 핸들러로 사용한다.
 요청 스코프 세션과 독립적으로 자체 DB 세션을 열어서, 큐 백엔드가 별도 프로세스로
 바뀌어도(Redis 워커 등) 동일하게 동작하도록 한다.
+
+주의(NFR-1, FR-12): Judge0가 설정되지 않았거나 hidden testcase가 없을 때 "항상 AC"로
+처리하는 개발용 폴백은 반드시 ENV=test 또는 AGENT_MODE=stub 환경에서만 허용한다.
+그 외(운영 등)에서는 실제로 채점하지 못했다는 사실이 "JUDGE_ERROR" 상태로 드러나야
+한다 — 그렇지 않으면 채점 없이 AC가 만들어져 SolvedRecord/커뮤니티 공유 gating이
+무력화된다 (error-fix/05_judge0_fallback_risk.md).
 """
 
 from __future__ import annotations
 
 import logging
+import os
 
 import httpx
 from sqlalchemy.exc import IntegrityError
@@ -26,6 +33,15 @@ _LANGUAGE_IDS = {"python": 71, "python3": 71, "java": 62, "cpp": 54, "c++": 54}
 _STATUS_MAP = {3: "AC", 4: "WA", 5: "TLE", 6: "RE", 14: "MLE"}
 
 
+def _is_dev_convenience_mode() -> bool:
+    """개발/테스트 편의용 'AC 폴백'을 허용해도 되는 환경인지 여부.
+
+    운영 환경에서는 절대 True가 되면 안 된다 — 채점 없이 AC를 만들면
+    SolvedRecord/커뮤니티 gating이 무력화되고 학습 로그 품질이 망가진다.
+    """
+    return os.getenv("ENV") == "test" or os.getenv("AGENT_MODE") == "stub"
+
+
 async def judge_submission(submission_id: int) -> None:
     """제출을 채점하고 결과를 DB에 반영한다. JudgeQueue 핸들러로 등록되어 호출된다."""
     db = SessionLocal()
@@ -42,9 +58,15 @@ async def judge_submission(submission_id: int) -> None:
 
             if settings.judge0_url:
                 result = await _call_judge0(submission, db)
-            else:
-                # Judge0 미설정 시 개발용 stub: 항상 AC
+            elif _is_dev_convenience_mode():
+                # 개발/테스트 편의용 stub: 항상 AC (ENV=test 또는 AGENT_MODE=stub 한정)
                 result = {"status": "AC", "runtime_ms": 100, "memory_kb": 1024}
+            else:
+                logger.error(
+                    "JUDGE0_URL이 설정되지 않아 채점할 수 없습니다 (submission_id=%s)",
+                    submission_id,
+                )
+                result = {"status": "JUDGE_ERROR", "runtime_ms": None, "memory_kb": None}
 
             submission.status = result["status"]
             submission.runtime_ms = result.get("runtime_ms")
@@ -116,7 +138,13 @@ async def _call_judge0(submission: Submission, db: Session) -> dict:
         .all()
     )
     if not hidden_cases:
-        return {"status": "AC", "runtime_ms": 0, "memory_kb": 0}
+        if _is_dev_convenience_mode():
+            return {"status": "AC", "runtime_ms": 0, "memory_kb": 0}
+        logger.error(
+            "hidden testcase가 없어 채점할 수 없습니다 (problem_id=%s)",
+            submission.problem_id,
+        )
+        return {"status": "JUDGE_ERROR", "runtime_ms": 0, "memory_kb": 0}
 
     language_id = _LANGUAGE_IDS.get(submission.language.lower(), 71)
 
