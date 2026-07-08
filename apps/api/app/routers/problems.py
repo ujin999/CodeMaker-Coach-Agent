@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from agent.schemas import GeneratedProblem, HintBundle, ReferenceSolution, TestcaseBundle
@@ -178,22 +178,52 @@ def list_problems(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 20,
+    limit: int = 100,
     mine: bool = False,
+    algorithm: Optional[str] = Query(default=None, description="알고리즘 분류 필터 (예: bfs, binary_search)"),
+    difficulty: Optional[str] = Query(default=None, description="난이도 필터 (easy, medium, hard)"),
+    q: Optional[str] = Query(default=None, description="제목 및 문제 본문 검색어"),
+    sort: Optional[str] = Query(default="recent", pattern="^(recent|difficulty)$"),
 ) -> List[ProblemSummaryResponse]:
-    """전체 또는 내가 만든 문제 목록 조회."""
+    """전체 또는 내가 만든 문제 목록 조회 — 알고리즘/난이도/검색어 필터 및 정렬 지원."""
+    from sqlalchemy import any_
+
     query = db.query(Problem)
+
+    # mine 필터
     if mine:
         query = query.filter(Problem.created_by == user_id)
-        
-    problems = (
-        query
-        .order_by(Problem.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-    
+
+    # 알고리즘 필터 — algorithm 컬럼은 ARRAY(String)
+    if algorithm:
+        query = query.filter(algorithm == any_(Problem.algorithm))
+
+    # 난이도 필터
+    if difficulty:
+        query = query.filter(Problem.difficulty == difficulty)
+
+    # 검색어 필터 — 제목 또는 본문(ilike: case-insensitive)
+    if q:
+        pattern = f"%{q}%"
+        query = query.filter(
+            Problem.title.ilike(pattern) | Problem.statement.ilike(pattern)
+        )
+
+    # 정렬
+    if sort == "difficulty":
+        from sqlalchemy import case
+        difficulty_order = case(
+            (Problem.difficulty == "easy", 1),
+            (Problem.difficulty == "medium", 2),
+            (Problem.difficulty == "hard", 3),
+            else_=4,
+        )
+        query = query.order_by(difficulty_order, Problem.created_at.desc())
+    else:
+        query = query.order_by(Problem.created_at.desc())
+
+    problems = query.offset(skip).limit(limit).all()
+
     # Bulk query user names to avoid N+1 query problem
     creator_ids = {p.created_by for p in problems if p.created_by is not None}
     user_names = {}
