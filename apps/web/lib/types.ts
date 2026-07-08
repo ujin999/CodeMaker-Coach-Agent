@@ -123,6 +123,41 @@ export interface ProblemReportStatusResponse {
   status: "active" | "under_review" | "removed";
 }
 
+// ── 문제 관리 / HITL (FR-34) — 별도 관리자 계정 없이 로그인한 모든 사용자가 사용 가능 ──
+export interface FlaggedReportSummary {
+  user_id: number;
+  reason: string;
+  created_at: string;
+}
+
+export interface FlaggedProblem {
+  id: string;
+  title: string;
+  difficulty: string;
+  algorithm: string[];
+  statement: string;
+  status: string;
+  report_count: number;
+  reports: FlaggedReportSummary[];
+  created_at: string;
+}
+
+export interface ProblemReviewRequest {
+  action: "dismiss" | "remove" | "edit";
+  title?: string;
+  statement?: string;
+  difficulty?: string;
+  constraints?: string[];
+  sample_input?: string;
+  sample_output?: string;
+}
+
+export interface ProblemReviewResponse {
+  id: string;
+  status: string;
+  report_count: number;
+}
+
 // ── Submission ────────────────────────────────────────────────────────────
 export type SubmissionStatus =
   | "PENDING"

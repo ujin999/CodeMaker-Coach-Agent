@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/problems", label: "문제 둘러보기" },
   { href: "/generate", label: "문제 생성" },
   { href: "/problems/mine", label: "내 문제" },
+  { href: "/problems/manage", label: "문제 관리" },
 ];
 
 export default function Navbar() {
