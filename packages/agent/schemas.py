@@ -164,6 +164,7 @@ class SubmissionResult(BaseModel):
         "MLE",
         "CE",
         "PE",
+        "JUDGE_ERROR",
         "UNKNOWN",
     ]
     user_code: Optional[str] = None
@@ -258,6 +259,7 @@ class TestcaseRunResult(BaseModel):
         "MLE",
         "CE",
         "PE",
+        "JUDGE_ERROR",
         "UNKNOWN",
     ] = "UNKNOWN"
     input_data: Optional[str] = None
@@ -278,6 +280,7 @@ class SubmissionEvaluationReport(BaseModel):
         "MLE",
         "CE",
         "PE",
+        "JUDGE_ERROR",
         "UNKNOWN",
     ]
     testcase_results: List[TestcaseRunResult] = Field(default_factory=list)
@@ -324,7 +327,7 @@ class ReferenceSolution(BaseModel):
 
 class ErrorDiagnosis(BaseModel):
     problem_id: str
-    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "JUDGE_ERROR", "UNKNOWN"]
     primary_cause: str
     confidence: Literal["low", "medium", "high"] = "medium"
     evidence: List[str] = Field(default_factory=list)
@@ -402,7 +405,7 @@ class FailedCaseExplanation(BaseModel):
 
 class ComplexityAnalysis(BaseModel):
     problem_id: str
-    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "JUDGE_ERROR", "UNKNOWN"]
     expected_time_complexity: Optional[str] = None
     observed_pattern: Optional[str] = None
     suspected_complexity: Optional[str] = None
@@ -440,7 +443,7 @@ class ComplexityAnalysis(BaseModel):
 
 class CounterexampleReport(BaseModel):
     problem_id: str
-    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "JUDGE_ERROR", "UNKNOWN"]
     testcase_name: Optional[str] = None
     counterexample_input: Optional[str] = None
     expected_output: Optional[str] = None
@@ -480,7 +483,7 @@ class CounterexampleReport(BaseModel):
 
 class SubmissionReviewPackage(BaseModel):
     problem_id: str
-    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "UNKNOWN"]
+    result_type: Literal["AC", "WA", "TLE", "RE", "MLE", "CE", "PE", "JUDGE_ERROR", "UNKNOWN"]
     evaluation_report: Optional[SubmissionEvaluationReport] = None
     error_diagnosis: Optional[ErrorDiagnosis] = None
     failed_case_explanation: Optional[FailedCaseExplanation] = None
