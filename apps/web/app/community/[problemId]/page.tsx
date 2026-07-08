@@ -1,13 +1,13 @@
 "use client";
-
+ 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ApiError, communityApi } from "@/lib/api";
-import type { SharedSolution } from "@/lib/types";
+import { ApiError, communityApi, submissionsApi } from "@/lib/api";
+import type { SharedSolution, SubmissionResponse } from "@/lib/types";
 import SharedSolutionCard from "@/components/SharedSolutionCard";
-
+ 
 type OrderBy = "recent" | "popular";
-
+ 
 export default function CommunityPage({
   params,
 }: {
@@ -16,19 +16,31 @@ export default function CommunityPage({
   const { problemId } = params;
   const searchParams = useSearchParams();
   const prefillSubmissionId = searchParams.get("submissionId");
-
+ 
   const [solutions, setSolutions] = useState<SharedSolution[] | null>(null);
   const [gated, setGated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderBy>("recent");
-
+ 
   const [showShareForm, setShowShareForm] = useState(!!prefillSubmissionId);
   const [submissionId, setSubmissionId] = useState(prefillSubmissionId ?? "");
+  const [submission, setSubmission] = useState<SubmissionResponse | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-
+ 
+  useEffect(() => {
+    if (submissionId) {
+      submissionsApi
+        .get(Number(submissionId))
+        .then(setSubmission)
+        .catch(() => setSubmission(null));
+    } else {
+      setSubmission(null);
+    }
+  }, [submissionId]);
+ 
   function load(orderBy: OrderBy) {
     communityApi
       .listForProblem(problemId, orderBy)
@@ -122,6 +134,14 @@ export default function CommunityPage({
             placeholder="풀이 제목"
             className="rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-white outline-none focus:border-brand"
           />
+          {submission && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted">제출 코드 ({submission.language})</label>
+              <pre className="max-h-[200px] overflow-auto rounded-md border border-border bg-bg p-3 text-xs font-mono text-slate-300 whitespace-pre">
+                <code>{submission.code}</code>
+              </pre>
+            </div>
+          )}
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}

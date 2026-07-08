@@ -127,6 +127,7 @@ export interface SubmissionRequest {
 export interface SubmissionResponse {
   id: number;
   problem_id: string;
+  code?: string;
   language: string;
   status: SubmissionStatus;
   runtime_ms: number | null;

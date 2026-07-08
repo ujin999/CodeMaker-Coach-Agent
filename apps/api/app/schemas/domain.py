@@ -69,6 +69,7 @@ class SubmissionRequest(BaseModel):
 class SubmissionResponse(BaseModel):
     id: int
     problem_id: str
+    code: Optional[str] = None
     language: str
     status: str  # PENDING | JUDGING | AC | WA | TLE | RE | MLE
     runtime_ms: Optional[int]
