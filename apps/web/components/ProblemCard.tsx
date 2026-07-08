@@ -24,9 +24,12 @@ export default function ProblemCard({ problem }: { problem: ProblemSummary }) {
           </span>
         ))}
       </div>
-      <div className="mt-auto flex items-center justify-between text-xs text-muted">
-        <span>시간복잡도 {problem.expected_time_complexity}</span>
-        <span>{new Date(problem.created_at).toLocaleDateString("ko-KR")}</span>
+      <div className="mt-auto flex flex-col gap-1 text-xs text-muted">
+        <div className="flex items-center justify-between">
+          <span>생성자: <span className="text-white font-medium">{problem.created_by_name || "알 수 없음"}</span></span>
+          <span>{new Date(problem.created_at).toLocaleDateString("ko-KR")}</span>
+        </div>
+        <div>시간복잡도 {problem.expected_time_complexity}</div>
       </div>
     </Link>
   );

@@ -51,6 +51,7 @@ export interface ProblemSummary {
   learning_goal: string;
   expected_time_complexity: string;
   created_at: string;
+  created_by_name?: string;
 }
 
 export interface ProblemDetail {
@@ -67,6 +68,7 @@ export interface ProblemDetail {
   sample_output: string | null;
   expected_time_complexity: string;
   created_at: string;
+  created_by_name?: string;
   seed?: string | null;
   generation_mode?: string | null;
   variant_id?: string | null;
@@ -83,6 +85,7 @@ export interface ProblemListQuery {
   sort?: "recent" | "difficulty";
   skip?: number;
   limit?: number;
+  mine?: boolean;
 }
 
 export interface RevealSolutionRequest {

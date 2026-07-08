@@ -164,6 +164,12 @@ async def generate_problem(
     prob_dict["seed"] = package.seed if hasattr(package, "seed") else None
     prob_dict["generation_mode"] = package.generation_mode if hasattr(package, "generation_mode") else None
     prob_dict["variant_id"] = package.variant_id if hasattr(package, "variant_id") else None
+
+    # Fetch creator display name or email
+    from app.models.user import User
+    creator = db.get(User, user_id)
+    prob_dict["created_by_name"] = (creator.display_name or creator.email) if creator else "알 수 없음"
+
     return ProblemDetailResponse.model_validate(prob_dict)
 
 
@@ -173,16 +179,35 @@ def list_problems(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 20,
+    mine: bool = False,
 ) -> List[ProblemSummaryResponse]:
-    """전체 문제 목록 조회."""
+    """전체 또는 내가 만든 문제 목록 조회."""
+    query = db.query(Problem)
+    if mine:
+        query = query.filter(Problem.created_by == user_id)
+        
     problems = (
-        db.query(Problem)
+        query
         .order_by(Problem.created_at.desc())
         .offset(skip)
         .limit(limit)
         .all()
     )
-    return [ProblemSummaryResponse.model_validate(p) for p in problems]
+    
+    # Bulk query user names to avoid N+1 query problem
+    creator_ids = {p.created_by for p in problems if p.created_by is not None}
+    user_names = {}
+    if creator_ids:
+        from app.models.user import User
+        users = db.query(User).filter(User.id.in_(creator_ids)).all()
+        user_names = {u.id: u.display_name or u.email for u in users}
+
+    res = []
+    for p in problems:
+        summary = ProblemSummaryResponse.model_validate(p)
+        summary.created_by_name = user_names.get(p.created_by, "알 수 없음")
+        res.append(summary)
+    return res
 
 
 @router.get("/{problem_id}", response_model=ProblemDetailResponse)
@@ -195,7 +220,18 @@ def get_problem(
     problem = db.get(Problem, problem_id)
     if not problem:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="문제를 찾을 수 없습니다.")
-    return ProblemDetailResponse.model_validate(problem)
+    
+    detail = ProblemDetailResponse.model_validate(problem)
+    if problem.created_by is not None:
+        from app.models.user import User
+        creator = db.get(User, problem.created_by)
+        if creator:
+            detail.created_by_name = creator.display_name or creator.email
+        else:
+            detail.created_by_name = "알 수 없음"
+    else:
+        detail.created_by_name = "알 수 없음"
+    return detail
 
 
 @router.post("/{problem_id}/reveal-solution", response_model=RevealSolutionResponse)

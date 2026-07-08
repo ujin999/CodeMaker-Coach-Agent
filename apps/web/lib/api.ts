@@ -121,6 +121,7 @@ export const problemsApi = {
     if (query.difficulty) params.set("difficulty", query.difficulty);
     if (query.q) params.set("q", query.q);
     if (query.sort) params.set("sort", query.sort);
+    if (query.mine !== undefined) params.set("mine", String(query.mine));
     params.set("skip", String(query.skip ?? 0));
     params.set("limit", String(query.limit ?? 100));
     const qs = params.toString();

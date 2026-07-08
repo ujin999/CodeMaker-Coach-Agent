@@ -13,7 +13,7 @@ export default function MyProblemsPage() {
 
   useEffect(() => {
     problemsApi
-      .list({ limit: 100 })
+      .list({ limit: 100, mine: true })
       .then(setProblems)
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "문제 목록을 불러오지 못했습니다.")
