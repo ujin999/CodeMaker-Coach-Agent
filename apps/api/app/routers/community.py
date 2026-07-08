@@ -89,8 +89,10 @@ def list_shared_solutions(
     """문제별 공유 풀이 목록 — AC gating 적용 (FR-30, FR-31)."""
     _assert_solved(user_id, problem_id, db)
 
+    from sqlalchemy.orm import joinedload
     q = (
         db.query(SharedSolution)
+        .options(joinedload(SharedSolution.submission))
         .filter(SharedSolution.problem_id == problem_id, SharedSolution.is_public == True)
     )
     if order_by == "popular":

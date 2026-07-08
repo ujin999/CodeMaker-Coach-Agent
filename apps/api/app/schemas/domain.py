@@ -120,6 +120,8 @@ class SharedSolutionResponse(BaseModel):
     description: Optional[str]
     is_public: bool
     likes_count: int
+    code: Optional[str] = None
+    language: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

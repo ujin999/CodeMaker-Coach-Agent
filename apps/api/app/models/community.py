@@ -46,6 +46,14 @@ class SharedSolution(Base):
     comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="shared_solution", cascade="all, delete-orphan")
     likes: Mapped[list["Like"]] = relationship("Like", back_populates="shared_solution", cascade="all, delete-orphan")
 
+    @property
+    def code(self) -> str:
+        return self.submission.code if self.submission else ""
+
+    @property
+    def language(self) -> str:
+        return self.submission.language if self.submission else ""
+
 
 class Comment(Base):
     __tablename__ = "comments"

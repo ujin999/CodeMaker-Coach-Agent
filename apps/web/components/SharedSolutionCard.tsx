@@ -69,6 +69,17 @@ export default function SharedSolutionCard({
         </p>
       )}
 
+      {solution.code && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between rounded-t-lg bg-surface-2 px-3 py-1.5 text-xs text-muted border border-border">
+            <span>공유된 코드 ({solution.language || "python"})</span>
+          </div>
+          <pre className="max-h-[300px] overflow-auto rounded-b-lg border border-t-0 border-border bg-bg p-3.5 text-xs font-mono text-slate-300 whitespace-pre">
+            <code>{solution.code}</code>
+          </pre>
+        </div>
+      )}
+
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
       <div className="mt-3 flex items-center gap-4 text-sm">

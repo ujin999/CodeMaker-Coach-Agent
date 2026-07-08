@@ -168,6 +168,8 @@ export interface SharedSolution {
   description: string | null;
   is_public: boolean;
   likes_count: number;
+  code?: string;
+  language?: string;
   created_at: string;
 }
 
