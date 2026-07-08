@@ -11,6 +11,7 @@ class ProblemGenerateRequest(BaseModel):
     learning_goal: Optional[str] = None
     user_level: Optional[str] = None
     recent_weaknesses: List[str] = Field(default_factory=list)
+    recent_errors: List[str] = Field(default_factory=list)
     min_cases: int = 5
     allowed_hint_level: int = 3
     include_hints: bool = True

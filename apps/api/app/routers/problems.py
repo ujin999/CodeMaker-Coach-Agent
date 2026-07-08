@@ -70,14 +70,18 @@ async def generate_problem(
         try:
             from packages.graphrag import get_user_weaknesses
             weak_data = get_user_weaknesses(user_id)
-            if weak_data and weak_data.get("weak_concepts"):
-                for wc in weak_data["weak_concepts"]:
-                    concept = wc["concept"]
-                    score = wc["score"]
-                    error_info = ""
-                    if weak_data.get("top_errors"):
-                        error_info = f", main_error: {weak_data['top_errors'][0]['error_type']}"
-                    spec.recent_weaknesses.append(f"{concept} (weight: {score}{error_info})")
+            if weak_data:
+                if weak_data.get("weak_concepts"):
+                    for wc in weak_data["weak_concepts"]:
+                        concept = wc["concept"]
+                        score = wc["score"]
+                        error_info = ""
+                        if weak_data.get("top_errors"):
+                            error_info = f", main_error: {weak_data['top_errors'][0]['error_type']}"
+                        spec.recent_weaknesses.append(f"{concept} (weight: {score}{error_info})")
+                if weak_data.get("top_errors"):
+                    for te in weak_data["top_errors"]:
+                        spec.recent_errors.append(te["error_type"])
         except Exception as graph_err:
             import logging
             logging.getLogger(__name__).warning(f"Failed to fetch user weaknesses for problem generation: {graph_err}")

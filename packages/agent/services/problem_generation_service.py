@@ -33,6 +33,7 @@ async def generate_problem_package(
         learning_goal=input_data.learning_goal,
         user_level=input_data.user_level,
         recent_weaknesses=input_data.recent_weaknesses,
+        recent_errors=input_data.recent_errors,
         seed=input_data.seed,
         avoid_problem_ids=input_data.avoid_problem_ids,
         force_new=input_data.force_new

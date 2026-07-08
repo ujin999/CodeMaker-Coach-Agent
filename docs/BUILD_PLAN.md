@@ -48,7 +48,7 @@ AI 에이전트가 CodeMaker Coach Agent를 **순서대로 구현**하기 위한
 - [x] Phase 7 — API 서버 + 인증
 - [x] Phase 8 — 프론트엔드
 - [x] Phase 9 — 코드 공유 (커뮤니티)
-- [~] Phase 10 — 개인화 / Graph RAG [확장] — 기본 연동(Neo4j sync/query, 약점 기반 문제 생성)은 있으나 확장 여지 있음
+- [x] Phase 10 — 개인화 / Graph RAG [확장] — LangGraph StateGraph 연동 및 Self-Correction 루프백 배선 완료
 
 ---
 

@@ -171,6 +171,7 @@ class LiveAgentGateway:
             learning_goal=request.learning_goal,
             user_level=request.user_level,
             recent_weaknesses=request.recent_weaknesses,
+            recent_errors=request.recent_errors,
             min_cases=request.min_cases,
             allowed_hint_level=request.allowed_hint_level,
             include_hints=request.include_hints,

@@ -29,6 +29,30 @@ def generate_problem(input_data: ProblemGenerationInput) -> GeneratedProblem:
     if input_data.seed:
         context_str += f"\n\nGeneration Seed/Nonce: {input_data.seed}\n"
 
+    # ── Graph RAG 기반 적응형 에러 방어 제약조건 동적 주입 ──
+    if hasattr(input_data, "recent_errors") and input_data.recent_errors:
+        context_str += "\n\n[USER ERROR CONTEXT & CONSTRAINTS]"
+        context_str += "\nThe user has frequently encountered the following errors recently. You MUST adjust the problem statement, constraints, or hint instructions to help them learn to avoid these issues:\n"
+        for err in input_data.recent_errors:
+            if err == "TLE":
+                context_str += (
+                    "- USER WEAKNESS: Time Limit Exceeded (TLE).\n"
+                    "  INSTRUCTION: Formulate a tight constraints section (e.g., N up to 10^5) that forces an optimized O(N) or O(N log N) approach, making O(N^2) brute force impossible. "
+                    "In the HintBlueprint, ensure the level_2/level_3 guidelines contain clear guidance on how to avoid unnecessary nested loops and optimize time complexity.\n"
+                )
+            elif err in ["RE", "WA"]:
+                context_str += (
+                    "- USER WEAKNESS: Runtime Error (RE) / Wrong Answer (WA) on edge/boundary cases.\n"
+                    "  INSTRUCTION: The problem description or constraints must naturally force the user to handle extreme inputs (such as N=0, empty arrays, or maximum integer limits). "
+                    "In the HintBlueprint's edge_case_focus, explicitly specify at least two edge/boundary values the user must handle carefully.\n"
+                )
+            elif err == "MLE":
+                context_str += (
+                    "- USER WEAKNESS: Memory Limit Exceeded (MLE).\n"
+                    "  INSTRUCTION: Design the problem constraints and time/memory limits to discourage large spatial allocations (like massive multidimensional tables or adjacency matrices). "
+                    "Ensure the hint blueprint guides them toward space-efficient representations.\n"
+                )
+
     variant = select_variant(input_data.algorithm, input_data.seed)
     if variant:
         context_str += f"\n\nSelected Variant ID: {variant['variant_id']}\n"
