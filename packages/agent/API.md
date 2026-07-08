@@ -8,10 +8,17 @@
 
 `packages/agent` 패키지는 데이터베이스, 웹 프레임워크 및 외부 인프라에 의존하지 않고 독립적으로 코딩 테스트 문제 생성, 테스트케이스 세트 생성 및 학습용 단계별 힌트 생성을 처리하는 **AI Generation Core Layer**입니다.
 
-이 패키지는 외부 인터페이스(FastAPI 백엔드 라우터, LangGraph 워크플로우 노드, CLI 데모 스크립트 등)에서 직접 임포트하여 통합할 수 있도록 다음과 같은 3가지 핵심 퍼블릭 함수를 노출합니다:
+이 패키지는 외부 인터페이스(FastAPI 백엔드 라우터, 노드 파이프라인, CLI 데모 스크립트 등)에서 직접 임포트하여 통합할 수 있도록 다음과 같은 3가지 핵심 퍼블릭 함수를 노출합니다:
 - **`generate_problem(...)`**
 - **`generate_testcases(...)`**
 - **`generate_hints(...)`**
+
+> 실제 FastAPI 백엔드는 위 개별 함수를 직접 조립하지 않고, 이들을 내부적으로 순서대로 실행하는
+> 4개의 비동기 **Service** 계층(`generate_problem_package`, `request_hint_package`,
+> `review_submission_package`, `assess_problem_report_package` — 3.20~3.23장)만 호출합니다.
+> 개별 함수는 CLI/노트북/단위 테스트에서 부분 실행할 때 유용합니다. `packages/agent`는
+> LangGraph `StateGraph`가 아니라, `nodes/workflow.py`가 Node들을 정해진 순서로 호출하는
+> 결정론적 파이프라인입니다 (상세: `docs/AGENTS_AND_TOOLS.md`).
 
 ---
 
@@ -127,6 +134,37 @@
     for hint in hint_bundle.hints:
         print(f"[Level {hint.level}] {hint.title}: {hint.content}")
     ```
+
+---
+
+### 2.4 결정론적 레퍼런스 솔버 & 문제 Variant 선택
+
+*   **레퍼런스 솔버 레지스트리**:
+    ```python
+    from agent.reference_solvers.registry import generate_reference_solution, UnsupportedReferenceSolverError
+    ```
+    - `generate_reference_solution(problem: GeneratedProblem) -> ReferenceSolution`
+    - 2.2의 결정론적 테스트케이스 생성기와 **동일한 8개 문제 유형**(`budget_cap`,
+      `two_pointer_subarray`, `bfs_grid_shortest_path`, `dfs_grid_components`, `cable_cutting`,
+      `router_installation`, `immigration_time`, `lower_bound_count`)에 대해 검증된 Python 정답
+      코드를 반환합니다. `testcase_generators.base.detect_problem_type()`으로 문제 유형을 먼저
+      감지한 뒤 매핑된 코드 빌더를 호출하며, 매핑이 없으면 `UnsupportedReferenceSolverError`를
+      던집니다.
+    - 반환된 코드가 실제로 예제/테스트케이스와 일치하는지는 `nodes/reference_solver_node.py`가
+      Judge0로 실행해 재검증합니다 — 이 함수 자체는 코드 텍스트만 생성합니다.
+
+*   **문제 Variant 선택** (`binary_search` 알고리즘 전용):
+    ```python
+    from agent.variants import select_variant
+    ```
+    - `select_variant(algorithm: str, seed: str | None) -> dict | None`
+    - `algorithm="binary_search"` 요청 시, `seed`를 SHA-256 해시해 5개 이분 탐색 계열 variant
+      (`budget_cap`/`cable_cutting`/`router_installation`/`immigration_time`/`lower_bound_count`)
+      중 하나를 결정론적으로 고릅니다. 반환값은 `variant_id`, 프롬프트에 강제할
+      `required_keywords`/`forbidden_keywords`/`prompt_instruction`, 그리고 LLM 실패 시 쓰는
+      `stub_template`을 포함합니다. 같은 `seed`는 항상 같은 variant를 선택하므로 재현 가능하고,
+      `seed`가 없으면(API에서는 매 생성 요청마다 새 UUID를 발급) 다양한 variant가 고르게
+      나옵니다.
 
 ---
 
@@ -399,6 +437,51 @@
     - 생성된 힌트가 인자로 전달되지 않는 경우, RAG 힌트 색인(`codemaker_hints` 벡터 스토어)에서 `search_hints`를 비동기 호출하여 자동으로 반환합니다.
     - `can_promote_hint_level` 헬퍼 함수를 제공해 DB 상태 변경 없이 동의 확인에 따른 힌트 승급 여부를 결정해 줍니다.
 
+### 3.23 Problem Report Assessment Service (신고 누적 문제 Agent 사전 심사)
+*   **임포트 경로**:
+    ```python
+    from agent.services import assess_problem_report_package, assessment_to_dict
+    from agent.schemas import ProblemReportAssessmentInput, ProblemReportAssessment
+    ```
+*   **함수 서명**:
+    ```python
+    async def assess_problem_report_package(
+        input_data: ProblemReportAssessmentInput,
+    ) -> ProblemReportAssessment: ...
+    ```
+*   **상세 설명**:
+    - 문제 신고 수가 `apps/api`의 `settings.problem_report_threshold`(기본 5) 이상 누적되면,
+      사람이 검토하기 전에 이 서비스가 문제 본문(`title`/`statement`/`constraints`/`sample_input`/
+      `sample_output`)과 누적된 신고 사유(`report_reasons`)를 LLM에 넘겨 심각도를 재판정합니다.
+    - `ProblemReportAssessment.severity`는 `critical`(치명적 결함 명확) / `safe`(오신고) /
+      `minor`(애매함) 중 하나이며, `reasoning`(한국어 판정 근거)과 `confidence`(low/medium/high)를
+      함께 반환합니다.
+    - **LLM 호출이나 구조화 출력 파싱이 어떤 이유로든 실패하면, 예외를 절대 전파하지 않고
+      항상 `severity="minor"`로 안전 폴백**합니다 — 판정 오류로 문제가 잘못 자동 삭제되거나
+      잘못 자동 기각되는 사고를 막기 위함입니다.
+    - 호출부(`apps/api/app/routers/problems.py`의 `report_problem`)는 판정 결과에 따라
+      `critical`→즉시 삭제, `safe`→신고 초기화 후 유지, `minor`(또는 폴백)→사람 검토
+      (`under_review`)로 분기합니다. 사람 검토는 별도 관리자 계정 없이 로그인한 모든 사용자가
+      담당합니다 (`docs/ARCHITECTURE.md` 7장).
+*   **FastAPI 연동 예시**:
+    ```python
+    from agent.schemas import ProblemReportAssessmentInput
+    from agent.services import assess_problem_report_package, assessment_to_dict
+
+    assessment = await assess_problem_report_package(
+        ProblemReportAssessmentInput(
+            problem_id=problem.id,
+            title=problem.title,
+            statement=problem.statement,
+            constraints=problem.constraints,
+            sample_input=problem.sample_input,
+            sample_output=problem.sample_output,
+            report_reasons=[r.reason for r in reports],
+        )
+    )
+    result = assessment_to_dict(assessment)  # {"severity": ..., "reasoning": ..., "confidence": ...}
+    ```
+
 ### 3.17 채점 결과 및 제출 평가 정책 (Judge Adapter / Submission Evaluation Policy)
 *   **무설치 오프라인 어댑터 (Pure Offline Adapter)**:
     - 본 컴포넌트는 사용자의 코드를 실제로 가상 머신이나 도커 내에서 빌드/실행하지 않는 안전한 순수 데이터 어댑터입니다. 외부 채점 엔진에 의해 측정 완료된 원시 실행 명세(`TestcaseRunResult`)를 전달받아 통계화하기만 합니다.
@@ -632,6 +715,22 @@
     - `summary` (str): 힌트 제공 결과 한국어 안내.
     - `safe_to_show` (bool): 뼈대 코드 이외의 정답 노출 방지 가드 상태.
 
+### 4.20 ProblemReportAssessmentInput
+*   **목적**: 신고 누적 문제 재검증(HITL 사전 심사) 요청 입력.
+*   **핵심 필드**:
+    - `problem_id` (str), `title` (str), `statement` (str): 대상 문제 식별/본문.
+    - `constraints` (List[str]), `sample_input`/`sample_output` (Optional[str]): 판정 근거로 함께 전달되는 문제 명세.
+    - `report_reasons` (List[str]): 해당 문제에 누적된 모든 신고 사유 텍스트.
+
+### 4.21 ProblemReportAssessment
+*   **목적**: Agent의 신고 재검증 판정 결과.
+*   **핵심 필드**:
+    - `problem_id` (str): 대상 문제 번호.
+    - `severity` (Literal["critical", "safe", "minor"]): `critical`=치명적 결함 명확(즉시 삭제),
+      `safe`=오신고(즉시 기각), `minor`=애매함(사람 검토로 이관).
+    - `reasoning` (str): 판정 근거 한국어 설명 (빈 문자열 불가 — validator 강제).
+    - `confidence` (Literal["low", "medium", "high"], 기본 `medium`): 판정 신뢰도.
+
 ---
 
 ## 5. 종단간 사용 시나리오 (End-to-End Usage)
@@ -702,5 +801,11 @@ print(f"생성된 힌트 수: {len(hints.hints)}")
 
 ## 9. 현재 설계상의 제한 사항 (Current Limitations)
 
-*   **코드 실행 및 검증 불가**: 본 패키지는 소스 코드의 컴파일 가능 여부 및 채점을 직접 다루지 않습니다. 격리 샌드박스 컴파일러(Judge0) 연동 및 테스트 통과 판정은 향후 백엔드 파이프라인 개발 범위에 속합니다.
-*   **생성 테스트케이스 무오성**: 생성된 테스트케이스 데이터셋은 AI 모델 기반의 추론 결과물입니다. 따라서, 로직 에러 방지를 위해 실제 사용 전 백엔드 채점 엔진 내부의 레퍼런스 솔루션 정답 검증(Reference solver execution validation) 코드를 통과시켜 사전 오류 필터링을 권장합니다.
+*   **코드 실행은 `run_user_code.py` 하나로 통일**: 이 패키지는 자체 샌드박스를 구현하지 않고
+    `tools/run_user_code.py`의 얇은 REST 클라이언트로 Judge0에 위임합니다(이미 구현·연동 완료).
+    사용자 제출 채점(`apps/api/app/judge_worker.py`)과 레퍼런스 솔루션 실행 검증
+    (`nodes/reference_solver_node.py`) 양쪽이 동일한 클라이언트를 공유합니다.
+*   **테스트케이스/정답 코드의 신뢰 기준**: 3장의 8개 결정론적 archetype은 수학적으로 검증된
+    Python 코드로 생성되므로 100% 정확합니다. 그 외 유형(experimental LLM fallback 경로로
+    생성된 테스트케이스)은 AI 모델 추론 결과물이므로, 실사용 전 Judge0 기반 레퍼런스 솔루션
+    실행 검증(`validation_node.py` + `reference_solver_node.py`)을 반드시 통과시켜야 합니다.

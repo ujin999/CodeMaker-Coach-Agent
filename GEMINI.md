@@ -17,9 +17,9 @@
 
 | 레이어 | 기술 |
 |---|---|
-| Agent 오케스트레이션 | **LangGraph** (State/Node/Edge 워크플로우) |
-| LLM 연결·Tool·프롬프트 | **LangChain** |
-| LLM Provider | OpenAI (기본값) / Claude (`LLM_PROVIDER` env로 결정) |
+| Agent 오케스트레이션 | 결정론적 Node 파이프라인 (`packages/agent/nodes/workflow.py`) — LangGraph `StateGraph`가 아님 |
+| LLM 연결·Tool·프롬프트 | **LangChain** (`packages/agent/chains/`) |
+| LLM Provider | Claude (기본값) / OpenAI (`LLM_PROVIDER` env로 결정) |
 | RAG | Vector DB (Qdrant/pgvector) + LangChain Retriever |
 | Graph RAG | **Neo4j** (사용자 약점 기반 개인화) |
 | 채점(Judge) | **Judge0** (기존 오픈소스, Docker/REST API) |
@@ -42,26 +42,35 @@ CodeMaker-Coach-Agent/
 │   ├── api/                  # FastAPI 백엔드
 │   └── web/                  # Next.js 프론트엔드
 ├── packages/
-│   ├── agent/                # ★ LangGraph Agent 코어 (순수 패키지)
-│   │   ├── graph.py          #   워크플로우 (State/Node/Edge)
-│   │   ├── nodes/            #   각 Agent = 하나의 Node
+│   ├── agent/                # ★ Agent 코어 (웹/DB와 독립된 순수 패키지)
+│   │   ├── chains/           #   LLM 호출 체인 (문제/힌트/피드백/신고판정 생성)
+│   │   ├── nodes/            #   결정론적 파이프라인 Node + workflow.py 러너
+│   │   ├── reference_solvers/ #  8종 archetype 결정론적 정답 코드 생성기
+│   │   ├── testcase_generators/ # 8종 archetype 결정론적 테스트케이스 생성기
+│   │   ├── tools/            #   Judge0/RAG 클라이언트
+│   │   ├── services/         #   FastAPI가 실제로 호출하는 비동기 서비스 진입점
 │   │   ├── prompts/          #   PromptTemplate
-│   │   └── state.py          #   GraphState
+│   │   └── schemas.py        #   Pydantic 스키마 전체
 │   ├── rag/                  # RAG 파이프라인
-│   └── graphrag/             # Neo4j Node/Edge 스키마 + Cypher
+│   ├── graphrag/             # Neo4j Node/Edge 스키마 + Cypher (사용자 약점 개인화, 구현됨)
+│   └── config/                # 공용 Settings 로더
 ├── infra/
-│   └── docker-compose.yml    # postgres, qdrant, judge0, api, web
+│   └── docker-compose.yml    # postgres, qdrant, judge0, neo4j, api, web
 └── tests/                    # pytest 테스트 스위트
 ```
+
+상세 구조/사양: `docs/AGENTS_AND_TOOLS.md`, `packages/agent/API.md`, `docs/API_REFERENCE.md`.
 
 ---
 
 ## 4. 핵심 정책 (반드시 지켜야 할 규칙)
 
 1. **정답 즉시 제공 금지 (HITL)** — 정답 코드는 기본 비공개. 사용자가 명시적으로 동의하고 확인 절차를 거친 경우에만 공개합니다.
-2. **점진적 힌트 제공** — 힌트는 1→2→3단계로 점진적으로만 상승합니다. 핵심 코드는 절대 제공하지 않고 구조(스켈레톤)까지만 노출합니다.
-3. **코드 실행 격리** — 사용자 코드는 반드시 Judge0 샌드박스에서만 실행하여 보안을 강화합니다.
-4. **코드 공유 gating** — 커뮤니티 공유 코드는 **해당 문제를 스스로 AC(정답 통과)한 사용자에게만** 열람을 허용합니다.
+2. **문제 원문 복제 금지 (저작권)** — 기존 온라인 저지 문제를 수집/변형하지 않고, 알고리즘 개념 문서 + 자체 템플릿 기반으로 새 문제를 생성합니다.
+3. **점진적 힌트 제공** — 힌트는 1→2→3단계로 점진적으로만 상승합니다. 핵심 코드는 절대 제공하지 않고 구조(스켈레톤)까지만 노출합니다.
+4. **코드 실행 격리** — 사용자 코드는 반드시 Judge0 샌드박스에서만 실행하여 보안을 강화합니다.
+5. **코드 공유 gating** — 커뮤니티 공유 코드는 **해당 문제를 스스로 AC(정답 통과)한 사용자에게만** 열람을 허용합니다.
+6. **문제 신고 / HITL 중재** — 신고가 누적되면 Agent가 먼저 심각도(critical/safe/minor)를 판정합니다. 애매한 경우에만 사람 검토로 넘어가며, **별도의 관리자 계정 없이 로그인한 모든 사용자**가 검토(`/problems/manage`)에 참여할 수 있습니다. 상세: `docs/ARCHITECTURE.md` 7장.
 
 ---
 

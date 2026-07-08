@@ -15,7 +15,7 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 [API 서버 / FastAPI]──────────────┬───────────────┬────────────────┐
   │                               │               │                │
   ▼ (동기: 생성·힌트·피드백)       ▼ (비동기: 채점) ▼                ▼
-[Agent 코어 / LangGraph]     [인메모리 큐]     [PostgreSQL]     [Neo4j]
+[Agent 코어 / packages/agent] [인메모리 큐]     [PostgreSQL]     [Neo4j]
   ├─ Problem Generator       (백그라운드 워커) 유저·문제·힌트    (Graph RAG:
   ├─ Testcase Generator          │            제출·공유코드      약점 개인화)
   ├─ Reference Solver            ▼            ·힌트단계상태
@@ -41,13 +41,22 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 
 ### 2.2 API 서버 (`apps/api`, FastAPI)
 - 라우터: `problems`, `submissions`, `hints`, `community`, `auth`
-- Agent 코어를 **import해서 호출**한다: `from agent.graph import build_graph`
-- 채점은 직접 안 하고 **큐에 적재** 후 즉시 응답(202) → 결과는 폴링/WebSocket
+- Agent 코어를 `AgentGateway` 프로토콜(`app/gateway.py`)을 통해 **import해서 호출**한다.
+  `LiveAgentGateway`는 `packages/agent`의 서비스 함수(`generate_problem_package`,
+  `request_hint_package`, `review_submission_package`, `assess_problem_report_package`)를
+  호출하고, `StubAgentGateway`는 결정론적 더미 응답을 반환한다. 어느 쪽을 쓸지는
+  `AGENT_MODE` env(`stub`/`live`/`auto`)로 결정한다.
+- 채점은 직접 안 하고 **큐에 적재** 후 즉시 응답(202) → 결과는 폴링
 - **힌트 단계 게이트키핑**을 여기서 강제한다 (허용 단계 이하만 Agent에 전달)
 
-### 2.3 Agent 코어 (`packages/agent`, LangGraph)
+### 2.3 Agent 코어 (`packages/agent`)
 - 웹/DB에 의존하지 않는 **독립 패키지** (NFR-10)
-- 워크플로우는 아래 4장 참조
+- **LangGraph `StateGraph`가 아니다** — `packages/agent/nodes/`의 각 Node 함수를
+  `packages/agent/nodes/workflow.py`의 러너(`run_package_workflow`,
+  `run_submission_review_workflow` 등)가 순서대로 호출하는 **결정론적 파이프라인**이다.
+  조건 분기(재생성/라우팅)는 Python 조건문으로 구현되며, LLM 호출은
+  `packages/agent/chains/`의 LangChain 체인이 담당한다. 상세 구조는
+  `docs/AGENTS_AND_TOOLS.md` 참조.
 - Tool은 `packages/agent/tools/`에 정의, 외부 자원(Judge0·RAG·DB)은 주입받는다
 
 ### 2.4 RAG (`packages/rag`)
@@ -110,7 +119,7 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 
 ---
 
-## 4. LangGraph 워크플로우 (기획 12.2)
+## 4. 노드 파이프라인 워크플로우 (기획 12.2, 결정론적 Node 체인 — LangGraph 아님)
 
 ```
 [사용자 선택]
@@ -138,12 +147,13 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 User            : id, email, password_hash, created_at
 Problem         : id, title, difficulty, algorithm[], statement, input_format,
                   output_format, constraints[], sample_input, sample_output,
-                  reference_solution(비공개), time_complexity, created_by, created_at
+                  reference_solution(비공개), time_complexity, created_by, created_at,
+                  status(active|under_review|removed) ← 7장 HITL 상태
 TestCase        : id, problem_id, type(sample|hidden|edge), input, expected_output
 Hint            : id, problem_id, level(1|2|3), content,
                   reveals_core_code(false 강제), code_skeleton(nullable)
 Submission      : id, user_id, problem_id, code, language,
-                  status(AC|WA|TLE|RE|MLE), runtime, memory, created_at
+                  status(AC|WA|TLE|RE|MLE|JUDGE_ERROR), runtime, memory, created_at
 HintProgress    : user_id, problem_id, allowed_level   ← 힌트 단계 게이트 상태
 SolvedRecord    : user_id, problem_id, solved_at        ← 공유 gating 판단용
 LearningLog     : id, user_id, problem_id, error_type, hint_level_used, resolved
@@ -151,6 +161,7 @@ SharedSolution  : id, submission_id, title, description, is_public, likes_count,
 Comment         : id, shared_solution_id, user_id, content, created_at
 Like            : user_id, shared_solution_id
 ProblemReport   : id, user_id, problem_id, reason, created_at
+                  (user_id+problem_id UNIQUE ← 중복 신고 방지, 신고 수는 COUNT(*)로 계산)
 ```
 
 핵심 제약:
@@ -178,22 +189,49 @@ ProblemReport   : id, user_id, problem_id, reason, created_at
 
 ---
 
-## 7. [TODO - 차기 과제] 신고 누적 문제 자동 중재 에이전트 (Human-in-the-Loop)
+## 7. 신고 누적 문제 자동 중재 (Human-in-the-Loop, FR-34/FR-35, 구현 완료)
 
-특정 문제의 신고가 일정 횟수 이상 누적되면 시스템 안정성 및 품질 유지를 위해 `Moderation Agent`가 자동으로 개입하는 기능 설계 사양이다.
+특정 문제의 신고가 임계치 이상 누적되면, 사람이 검토하기 전에 Agent가 먼저 문제와 신고 사유를
+재검증해 심각도를 판정한다. **아래는 실제로 구현되어 `develop`에 병합된 사양이며, 별도의
+어드민 역할이나 LangGraph Interrupt/체크포인터를 쓰지 않는 단순한 설계**로 만들어졌다
+(8.2의 이미지는 검토 초안 당시의 설계로, 실제 구현과 다른 부분이 있다 — 8.2 하단 참고).
 
-### 7.1 아키텍처 모델 및 상태 정의 (DB)
-- `ProblemModeration` 테이블을 신설하여 문제 아이디, 판정 상태(`PENDING` | `AUTO_DELETED` | `ADMIN_PENDING` | `ADMIN_APPROVED` | `DISMISSED`), AI 중재 의견(`reason`), 심각도(`severity`), 그리고 일시 정지된 에이전트를 재개하기 위한 LangGraph `thread_id` 정보를 추적 관리한다.
+### 7.1 상태 모델 (기존 테이블 재사용, 별도 테이블 없음)
+- 별도의 `ProblemModeration` 테이블을 두지 않는다. 기존 `Problem.status` 컬럼
+  (`active` | `under_review` | `removed`)과 기존 `ProblemReport` 테이블(신고 1건 = 1 row,
+  `user_id`+`problem_id` unique)만으로 상태를 표현한다.
+- 신고 누적 수는 별도 카운터 컬럼이 아니라 `ProblemReport`에 대한 `COUNT(*)`로 즉시 계산한다
+  (`_report_count()`, `apps/api/app/routers/problems.py`).
 
-### 7.2 LangGraph 상태 기계 흐름
-1.  **[assess_problem Node]**: 누적된 신고 사유와 문제 정보를 컨텍스트로 LLM에 넘겨 심각도를 `critical` (치명적), `minor` (수정 필요), `safe` (오신고)로 판정한다.
-2.  **[Routing Edge]**: 심각도에 따라 분기한다:
-    - `critical` -> `auto_delete Node`로 이동하여 DB에서 문제를 일괄 삭제하고 `status=AUTO_DELETED` 처리.
-    - `safe` -> `dismiss_reports Node`로 이동하여 신고 내역을 기각/초기화하고 `status=DISMISSED` 처리.
-    - `minor` -> **Interrupt 발생**. LangGraph 실행을 일시정지하고 `status=ADMIN_PENDING` 상태로 대기한다.
-3.  **[Admin Approval Interrupt & Resume]**:
-    - 관리자가 전용 어드민 API(`POST /api/admin/moderations/{id}/action`)를 통해 승인(`approve`) 또는 반려(`reject`) 응답을 송신한다.
-    - 백엔드는 관리자의 결정을 그래프의 상태 값(State)에 주입하고, 체크포인터(`MemorySaver`)의 대기 스레드를 재개(`resume`)하여 이후 노드(`auto_delete` 또는 `dismiss_reports`)를 최종 실행한다.
+### 7.2 판정 흐름 (LangGraph Interrupt 없음 — 요청-응답 내에서 동기적으로 완결)
+`POST /api/problems/{id}/report` 한 번의 요청 안에서 아래가 순서대로 일어난다. 별도 스레드/재개
+없이 API 응답이 돌아가기 전에 모두 끝난다.
+
+1. 신고를 `ProblemReport`에 저장한다 (같은 사용자의 중복 신고는 409로 거부).
+2. 누적 신고 수(`COUNT(*)`)가 `settings.problem_report_threshold`(기본 5) 이상이고 문제가 아직
+   `active`이면, 그 문제의 모든 신고 사유와 문제 본문을 묶어
+   `packages/agent`의 `assess_problem_report_package()`를 호출한다. 이 함수는 LLM을
+   `ProblemReportAssessment`(`severity: critical|safe|minor`, `reasoning`, `confidence`) 구조화
+   출력으로 호출하고, **LLM 호출/파싱이 실패하면 예외를 삼키고 항상 `severity="minor"`로
+   폴백**한다 (오탐으로 인한 자동 삭제·자동 기각을 막기 위한 안전장치).
+3. 판정 결과에 따라 즉시 분기한다 (Interrupt/재개 없음):
+   - `critical` → 사람 검토 없이 즉시 `Problem.status = "removed"` (소프트 삭제).
+   - `safe` → 사람 검토 없이 해당 문제의 `ProblemReport`를 전부 삭제하고 `status = "active"` 유지(오신고 기각).
+   - `minor` (또는 판정 실패 폴백) → 기존과 동일하게 `status = "under_review"`로 전환해 사람 검토 대기열에 올린다.
+
+### 7.3 사람 검토 (Human-in-the-Loop) — 어드민 계정 없음
+- `under_review` 상태의 문제는 공개 카탈로그(`GET /api/problems`, `mine=false`)에서 자동으로
+  숨겨진다 (`Problem.status == "active"` 필터).
+- **별도의 관리자(admin) 역할은 존재하지 않는다.** `GET /api/problems/flagged`(검토 대기 목록 조회)와
+  `POST /api/problems/{id}/review`(조치)는 로그인한 사용자라면 누구나 호출할 수 있다 — 이는 애초
+  admin-only로 만들었다가, "문제 관리 페이지는 별도 관리자 없이 모든 로그인 사용자가 접근 가능해야
+  한다"는 명시적 결정에 따라 바뀐 것이다.
+- 조치(`action`)는 3가지: `dismiss`(신고 기각, active로 복구) / `remove`(소프트 삭제, `status=removed`)
+  / `edit`(제목·본문 등 수정 후 active로 복구). 세 경우 모두 실제 행(row) 삭제(hard delete)는 절대
+  하지 않는다 — `Submission`/`SharedSolution` 등 관련 레코드가 `ON DELETE CASCADE`라 하드 삭제 시
+  사용자들의 기존 제출/학습 이력까지 함께 사라지기 때문이다.
+
+> 시퀀스 다이어그램은 `docs/API_REFERENCE.md`의 "문제 신고 / HITL 흐름" 섹션 참조.
 
 ---
 
@@ -205,8 +243,12 @@ ProblemReport   : id, user_id, problem_id, reason, created_at
 * **전체 시퀀스 다이어그램**
   ![전체 시퀀스 다이어그램](architecture-picture/overall_system_sequence.png)
 
-### 8.2 신고 중재(Moderation) 에이전트 구조 & 흐름 (Human-in-the-Loop)
-* **신고 중재 에이전트 구성도**
-  ![신고 중재 에이전트 구성도](architecture-picture/moderation_system_architecture.png)
-* **신고 중재 시퀀스 다이어그램**
-  ![신고 중재 시퀀스 다이어그램](architecture-picture/moderation_system_sequence.png)
+### 8.2 신고 중재(Moderation) 이미지 — 설계 초안(참고용, 실제 구현과 다름)
+* ![신고 중재 에이전트 구성도](architecture-picture/moderation_system_architecture.png)
+* ![신고 중재 시퀀스 다이어그램](architecture-picture/moderation_system_sequence.png)
+
+> **주의**: 위 두 이미지는 `ProblemModeration` 테이블, LangGraph `Interrupt`/`MemorySaver` 기반
+> 일시정지·재개, 어드민 전용 `POST /api/admin/moderations/{id}/action` API를 전제로 한 **초기 설계
+> 스케치**다. 실제 구현(7장)은 이보다 단순하다 — 기존 `Problem.status`/`ProblemReport` 테이블만
+> 재사용하고, Interrupt 없이 요청-응답 안에서 동기적으로 판정·분기가 끝나며, 어드민 역할 없이 모든
+> 로그인 사용자가 검토에 참여한다. 최신 Mermaid 시퀀스 다이어그램은 `docs/API_REFERENCE.md`를 참조한다.

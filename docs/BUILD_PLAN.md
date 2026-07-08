@@ -2,6 +2,12 @@
 
 AI 에이전트가 CodeMaker Coach Agent를 **순서대로 구현**하기 위한 단계별 플레이북이다.
 
+> **진행 상태**: 아래 Phase 0~10과, 이 문서 작성 이후 추가된 문제 신고/HITL 중재 기능
+> (`docs/REQUIREMENTS.md` FR-34/35, `docs/ARCHITECTURE.md` 7장)까지 모두 구현되어 `develop`에
+> 병합되었다. 이 문서는 **최초 설계 당시의 계획**이라 일부 Step에서 언급하는 파일명
+> (`graph.py`, `state.py`, `validator.py`, `feedback_hints.py`, `generate_counterexample.py` 등)이
+> 실제 최종 구현과 다르다 — **실제 파일 구조는 `docs/AGENTS_AND_TOOLS.md`를 기준으로 삼는다.**
+
 ## 사용 규칙 (AI 필독)
 - 위에서 아래로 **순차 진행**한다. 각 Step은 이전 Step의 산출물에 의존한다.
 - 각 Step은 `목표 → 작업 → 산출 → 검증(DoD) → 근거`로 구성된다. **검증(DoD)을 통과해야 다음 Step으로 간다.**
