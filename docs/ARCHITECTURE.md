@@ -194,3 +194,19 @@ ProblemReport   : id, user_id, problem_id, reason, created_at
 3.  **[Admin Approval Interrupt & Resume]**:
     - 관리자가 전용 어드민 API(`POST /api/admin/moderations/{id}/action`)를 통해 승인(`approve`) 또는 반려(`reject`) 응답을 송신한다.
     - 백엔드는 관리자의 결정을 그래프의 상태 값(State)에 주입하고, 체크포인터(`MemorySaver`)의 대기 스레드를 재개(`resume`)하여 이후 노드(`auto_delete` 또는 `dismiss_reports`)를 최종 실행한다.
+
+---
+
+## 8. 시각화 아키텍처 다이어그램 (Images)
+
+### 8.1 전체 시스템 구조 & 흐름
+* **전체 시스템 구성도**
+  ![전체 시스템 구성도](architecture-picture/overall_system_architecture.png)
+* **전체 시퀀스 다이어그램**
+  ![전체 시퀀스 다이어그램](architecture-picture/overall_system_sequence.png)
+
+### 8.2 신고 중재(Moderation) 에이전트 구조 & 흐름 (Human-in-the-Loop)
+* **신고 중재 에이전트 구성도**
+  ![신고 중재 에이전트 구성도](architecture-picture/moderation_system_architecture.png)
+* **신고 중재 시퀀스 다이어그램**
+  ![신고 중재 시퀀스 다이어그램](architecture-picture/moderation_system_sequence.png)
