@@ -386,17 +386,24 @@ def reveal_solution(
     response_model=ProblemReportResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def report_problem(
+async def report_problem(
     problem_id: str,
     body: ProblemReportRequest,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
+    gateway: AgentGateway = Depends(_dep_gateway),
 ) -> ProblemReportResponse:
     """품질 낮은 생성 문제 신고 (FR-34).
 
     한 사용자는 같은 문제를 한 번만 신고할 수 있다 (중복 신고는 409). 누적 신고 수가
-    settings.problem_report_threshold 이상이면 문제를 under_review로 전환해 공개
-    카탈로그에서 숨기고, 관리자의 HITL 검토(기각/삭제/수정)를 기다린다.
+    settings.problem_report_threshold 이상이 되면, human-in-the-loop로 가기 전에
+    Agent가 먼저 문제와 신고 사유를 재검증한다 (신고누적흐름.txt 참조):
+
+    - severity=critical (치명적 결함 명확) -> 사람 검토 없이 즉시 삭제(removed)
+    - severity=safe (오신고로 판단)        -> 사람 검토 없이 신고 초기화 후 active 유지
+    - severity=minor (애매함/판단 근거 불충분) -> 기존대로 under_review로 전환해 사람 검토 대기
+
+    Agent 판정이 실패하면 항상 minor로 폴백한다 (안전한 기본값).
     """
     problem = db.get(Problem, problem_id)
     if not problem:
@@ -416,8 +423,33 @@ def report_problem(
 
     count = _report_count(db, problem_id)
     if count >= settings.problem_report_threshold and problem.status == "active":
-        problem.status = "under_review"
+        reasons = [
+            r.reason
+            for r in db.query(ProblemReport).filter(ProblemReport.problem_id == problem_id).all()
+        ]
+        assessment = await gateway.assess_problem_report(
+            problem_id=problem_id,
+            title=problem.title,
+            statement=problem.statement,
+            constraints=problem.constraints,
+            sample_input=problem.sample_input,
+            sample_output=problem.sample_output,
+            report_reasons=reasons,
+        )
+        severity = assessment.get("severity", "minor")
+
+        if severity == "critical":
+            # Agent가 치명적 결함을 명확히 판단 — human-in-the-loop 없이 즉시 삭제.
+            problem.status = "removed"
+        elif severity == "safe":
+            # Agent가 오신고로 판단 — human-in-the-loop 없이 즉시 기각(신고 초기화).
+            db.query(ProblemReport).filter(ProblemReport.problem_id == problem_id).delete()
+            problem.status = "active"
+        else:
+            # minor 또는 알 수 없는 값 — 기존대로 사람 검토 대기.
+            problem.status = "under_review"
         db.commit()
+        count = _report_count(db, problem_id)  # safe 분기에서 초기화됐을 수 있으므로 재계산
 
     return ProblemReportResponse(
         id=report.id,

@@ -682,4 +682,35 @@ class HintRequestPackage(BaseModel):
         if not self.summary or not self.summary.strip():
             raise ValueError("summary must be non-empty.")
 
+
+class ProblemReportAssessmentInput(BaseModel):
+    """신고 누적 문제 재검증 요청 입력 — HITL 이전 Agent 판정 단계."""
+    problem_id: str
+    title: str
+    statement: str
+    constraints: List[str] = Field(default_factory=list)
+    sample_input: Optional[str] = None
+    sample_output: Optional[str] = None
+    report_reasons: List[str] = Field(default_factory=list)
+
+
+class ProblemReportAssessment(BaseModel):
+    """Agent의 신고 재검증 결과.
+
+    - critical: 문제 자체에 치명적 결함이 명확함 -> human 검토 없이 즉시 삭제.
+    - safe: 신고 사유가 근거 없음(오신고) -> human 검토 없이 즉시 기각.
+    - minor: 애매하거나 판단 근거가 불충분함 -> 기존대로 human-in-the-loop 진행.
+    """
+    problem_id: str
+    severity: Literal["critical", "safe", "minor"]
+    reasoning: str = Field(description="판정 근거 (한국어)")
+    confidence: Literal["low", "medium", "high"] = "medium"
+
+    @field_validator("reasoning")
+    @classmethod
+    def validate_reasoning(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("reasoning must be non-empty.")
+        return v
+
         return self

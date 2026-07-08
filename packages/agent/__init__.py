@@ -23,6 +23,8 @@ from agent.schemas import (
     ProblemGenerationPackageInput,
     HintRequestPackage,
     HintRequestPackageInput,
+    ProblemReportAssessment,
+    ProblemReportAssessmentInput,
 )
 
 from agent.services import (
@@ -37,6 +39,8 @@ from agent.services import (
     request_hint_package_sync,
     hint_package_to_dict,
     can_promote_hint_level,
+    assess_problem_report_package,
+    assessment_to_dict,
 )
 
 __all__ = [
@@ -75,4 +79,8 @@ __all__ = [
     "request_hint_package_sync",
     "hint_package_to_dict",
     "can_promote_hint_level",
+    "assess_problem_report_package",
+    "assessment_to_dict",
+    "ProblemReportAssessment",
+    "ProblemReportAssessmentInput",
 ]

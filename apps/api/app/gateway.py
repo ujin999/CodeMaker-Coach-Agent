@@ -78,6 +78,18 @@ class AgentGateway(Protocol):
         request: ProblemGenerateRequest,
     ) -> ProblemGenerateResponse: ...
 
+    async def assess_problem_report(
+        self,
+        *,
+        problem_id: str,
+        title: str,
+        statement: str,
+        constraints: list[str],
+        sample_input: Optional[str],
+        sample_output: Optional[str],
+        report_reasons: list[str],
+    ) -> dict: ...
+
 
 class LiveAgentGateway:
     """실제 AI(`agent.chains`, `rag`)를 호출하는 어댑터.
@@ -186,6 +198,37 @@ class LiveAgentGateway:
             variant_id=package.variant_id
         )
 
+    async def assess_problem_report(
+        self,
+        *,
+        problem_id: str,
+        title: str,
+        statement: str,
+        constraints: list[str],
+        sample_input: Optional[str],
+        sample_output: Optional[str],
+        report_reasons: list[str],
+    ) -> dict:
+        """신고 누적 문제 재검증 — human-in-the-loop 이전 Agent 판정 단계.
+
+        LLM 실패는 assess_problem_report_package 내부에서 이미 'minor'로
+        폴백되므로 여기서는 추가 예외 처리를 하지 않는다.
+        """
+        from agent import assess_problem_report_package, assessment_to_dict
+        from agent.schemas import ProblemReportAssessmentInput
+
+        assessment = await assess_problem_report_package(
+            ProblemReportAssessmentInput(
+                problem_id=problem_id,
+                title=title,
+                statement=statement,
+                constraints=constraints,
+                sample_input=sample_input,
+                sample_output=sample_output,
+                report_reasons=report_reasons,
+            )
+        )
+        return assessment_to_dict(assessment)
 
 
 class StubAgentGateway:
@@ -409,6 +452,25 @@ class StubAgentGateway:
             seed=request.seed,
             variant_id=variant["variant_id"] if variant else (f"var_{request.seed}" if request.seed else None)
         )
+
+    async def assess_problem_report(
+        self,
+        *,
+        problem_id: str,
+        title: str,
+        statement: str,
+        constraints: list[str],
+        sample_input: Optional[str],
+        sample_output: Optional[str],
+        report_reasons: list[str],
+    ) -> dict:
+        # 항상 human-in-the-loop로 라우팅한다 — 실제 LLM 판정을 흉내내지 않는다.
+        return {
+            "problem_id": problem_id,
+            "severity": "minor",
+            "reasoning": "STUB: 항상 human-in-the-loop로 라우팅합니다.",
+            "confidence": "low",
+        }
 
 
 def _stub_blueprint(algorithms: list[str]) -> HintBlueprint:
