@@ -57,7 +57,9 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
   2. **힌트 색인** — 문제 생성 시 저장된 힌트를 문제별로 검색 (단계 필터 적용)
 
 ### 2.5 Graph RAG (`packages/graphrag`, Neo4j)
-- 사용자 약점·문제·개념·오답유형 관계를 저장 → 맞춤형 문제 생성 (MAY, 확장)
+- 사용자 약점·문제·개념·오답유형 관계를 Neo4j에 그래프 구조로 유지하고 개인화 문제 생성에 활용한다.
+- **오답 발생/해결 시점**: `judge_submission` 완료 시점에 사용자-개념 간의 약점 가중치(`WEAK_IN {weight_score}`)를 증감하여 학습 상태를 누적 업데이트한다.
+- **문제 생성 시점**: 생성 에이전트 구동 전 Neo4j에서 현재 사용자의 약점 개념(가중치가 높은 알고리즘 태그)과 잦은 오답 유형을 조회한 뒤, `recent_weaknesses` 프롬프트 필드에 주입하여 LLM이 개인화된 맞춤 문제를 설계하도록 유도한다.
 
 ### 2.6 채점 작업 큐 (MVP: 인메모리)
 - **MVP는 인메모리 큐를 사용한다.** 사용자 규모가 작아 별도 브로커(Redis)와 Celery 워커가 불필요하다.
@@ -79,7 +81,7 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 
 ### 3.1 문제 생성 (동기)
 ```
-사용자 선택 → API → LangGraph 실행
+사용자 선택 → API → Neo4j 약점 및 오답 유형 쿼리 → 약점 주입
   → RAG(개념 검색) → Problem Generator → Testcase Generator
   → Reference Solver → Validator
       ├ 실패 → 재생성 (분기)
@@ -91,6 +93,8 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
 코드 제출 → API가 인메모리 큐에 적재 → 202 응답
   → 백그라운드 워커가 Judge0로 hidden testcase 실행 → 상태(AC/WA/TLE/RE/MLE)
   → 콜백 → LangGraph 분기(정답 로그 / 오답 분석 / 복잡도 분석 / 에러 분석)
+      ├ 정답(AC) -> Neo4j 약점 가중치 감산 및 해결 이력 기록
+      └ 오답(WA/TLE/RE) -> Neo4j 약점 가중치 가산 및 오답 유형 축적
   → 사용자에게 결과 전달 (폴링/WebSocket)
 ```
 
@@ -118,8 +122,8 @@ CodeMaker Coach Agent의 시스템 아키텍처를 정의한다.
         ↓
    [사용자 코드 제출] → [Code Execution (Judge0)]
         ↓ (조건 분기)
-        ├ 정답      → 학습 로그 저장
-        ├ 오답      → 오답 분석 + 반례 생성
+        ├ 정답      → 학습 로그 저장 & Neo4j 가중치 해결 반영
+        ├ 오답      → 오답 분석 + 반례 생성 & Neo4j 취약점 추가
         ├ 시간 초과 → 시간복잡도 분석
         └ 런타임 E  → 에러 분석
         ↓
@@ -165,10 +169,28 @@ ProblemReport   : id, user_id, problem_id, reason, created_at
 | `judge0` | 코드 채점 샌드박스 (+ 부속 워커/DB) | ✅ |
 | `api` | FastAPI (인메모리 큐 + 백그라운드 워커 포함) | ✅ |
 | `web` | Next.js | ✅ |
-| `neo4j` | Graph RAG (개인화 확장) | ⬜ (확장) |
-| ~~`redis`~~ | ~~앱 채점 큐 브로커~~ → **MVP 제외**, 인메모리 큐로 대체 (트래픽 증가 시 도입) | ⬜ |
-| `judge0-redis` | Judge0 스택 **내부 전용** 큐/캐시 — 앱 채점 큐와는 무관 | ✅ (Judge0 부속) |
+| `neo4j` | Graph RAG (개인화 확장) | ✅ (Phase 4 도입) |
+| ~~`redis`~~ | ~~채점 큐 브로커~~ → **MVP 제외**, 인메모리 큐로 대체 (트래픽 증가 시 도입) | ⬜ |
 
 > - 채점 큐는 MVP에서 API 프로세스 내부 인메모리 큐(`apps/api/app/queue.py`)로 처리하므로 별도 컨테이너가 없다. (2.6 참조)
 > - `judge0-redis`는 Judge0 자체 구현이 쓰는 내부 컴포넌트다. "앱 큐용 Redis"와 혼동하지 않는다 — 위 표의 `~~redis~~` 행이 가리키는 것은 앱 큐용이며 MVP에서 실제로 존재하지 않는다.
 > - Judge0는 API·DB 네트워크와 분리된 네트워크에 두어 격리한다. (NFR-2)
+
+---
+
+## 7. [TODO - 차기 과제] 신고 누적 문제 자동 중재 에이전트 (Human-in-the-Loop)
+
+특정 문제의 신고가 일정 횟수 이상 누적되면 시스템 안정성 및 품질 유지를 위해 `Moderation Agent`가 자동으로 개입하는 기능 설계 사양이다.
+
+### 7.1 아키텍처 모델 및 상태 정의 (DB)
+- `ProblemModeration` 테이블을 신설하여 문제 아이디, 판정 상태(`PENDING` | `AUTO_DELETED` | `ADMIN_PENDING` | `ADMIN_APPROVED` | `DISMISSED`), AI 중재 의견(`reason`), 심각도(`severity`), 그리고 일시 정지된 에이전트를 재개하기 위한 LangGraph `thread_id` 정보를 추적 관리한다.
+
+### 7.2 LangGraph 상태 기계 흐름
+1.  **[assess_problem Node]**: 누적된 신고 사유와 문제 정보를 컨텍스트로 LLM에 넘겨 심각도를 `critical` (치명적), `minor` (수정 필요), `safe` (오신고)로 판정한다.
+2.  **[Routing Edge]**: 심각도에 따라 분기한다:
+    - `critical` -> `auto_delete Node`로 이동하여 DB에서 문제를 일괄 삭제하고 `status=AUTO_DELETED` 처리.
+    - `safe` -> `dismiss_reports Node`로 이동하여 신고 내역을 기각/초기화하고 `status=DISMISSED` 처리.
+    - `minor` -> **Interrupt 발생**. LangGraph 실행을 일시정지하고 `status=ADMIN_PENDING` 상태로 대기한다.
+3.  **[Admin Approval Interrupt & Resume]**:
+    - 관리자가 전용 어드민 API(`POST /api/admin/moderations/{id}/action`)를 통해 승인(`approve`) 또는 반려(`reject`) 응답을 송신한다.
+    - 백엔드는 관리자의 결정을 그래프의 상태 값(State)에 주입하고, 체크포인터(`MemorySaver`)의 대기 스레드를 재개(`resume`)하여 이후 노드(`auto_delete` 또는 `dismiss_reports`)를 최종 실행한다.
