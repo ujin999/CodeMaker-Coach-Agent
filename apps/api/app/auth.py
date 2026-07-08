@@ -12,9 +12,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
 
-from app.db import get_db
 from config.settings import settings
 
 # ── 설정 ────────────────────────────────────────────────────────────────────
@@ -74,23 +72,3 @@ def get_current_user_id(token: str = Depends(oauth2_scheme)) -> int:
     """보호된 라우터에서 현재 사용자 ID를 꺼내는 의존성."""
     payload = decode_token(token)
     return int(payload["sub"])
-
-
-def require_admin(
-    user_id: int = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-) -> int:
-    """관리자(is_admin) 전용 라우터에서 사용하는 의존성. 아니면 403.
-
-    최초 관리자 계정은 API로 만들 수 없다 — DB에서 직접
-    `UPDATE users SET is_admin = true WHERE email = '...'`로 설정해야 한다.
-    """
-    from app.models.user import User
-
-    user = db.get(User, user_id)
-    if not user or not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="관리자 권한이 필요합니다.",
-        )
-    return user_id

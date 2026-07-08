@@ -13,7 +13,6 @@ from app.routers.problems import router as problems_router
 from app.routers.submissions import router as submissions_router
 from app.routers.hints import router as hints_router
 from app.routers.community import router as community_router
-from app.routers.admin import router as admin_router
 from config.settings import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +38,6 @@ app.include_router(problems_router)
 app.include_router(submissions_router)
 app.include_router(hints_router)
 app.include_router(community_router)
-app.include_router(admin_router)
 
 
 @app.get("/health", tags=["health"])

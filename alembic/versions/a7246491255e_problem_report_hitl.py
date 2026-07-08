@@ -24,10 +24,6 @@ def upgrade() -> None:
         "problems",
         sa.Column("status", sa.String(length=20), nullable=False, server_default="active"),
     )
-    op.add_column(
-        "users",
-        sa.Column("is_admin", sa.Boolean(), nullable=False, server_default=sa.false()),
-    )
 
     # 기존 중복 신고(같은 유저가 같은 문제를 여러 번 신고한 행)를 정리한 뒤 unique 제약을 건다.
     # 가장 오래된 신고만 남기고 나머지는 삭제한다.
@@ -48,5 +44,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_constraint("uq_problem_report", "problem_reports", type_="unique")
-    op.drop_column("users", "is_admin")
     op.drop_column("problems", "status")

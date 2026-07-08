@@ -6,6 +6,7 @@ import type {
   ApiErrorBody,
   Comment,
   CommentRequest,
+  FlaggedProblem,
   Hint,
   HintProgress,
   HintUnlockRequest,
@@ -16,6 +17,8 @@ import type {
   ProblemReportRequest,
   ProblemReportResponse,
   ProblemReportStatusResponse,
+  ProblemReviewRequest,
+  ProblemReviewResponse,
   ProblemSummary,
   RegisterRequest,
   RevealSolutionRequest,
@@ -147,6 +150,12 @@ export const problemsApi = {
     request<void>(`/api/problems/${problemId}/report`, { method: "DELETE" }),
   reportStatus: (problemId: string) =>
     request<ProblemReportStatusResponse>(`/api/problems/${problemId}/report`),
+  listFlagged: () => request<FlaggedProblem[]>("/api/problems/flagged"),
+  review: (problemId: string, body: ProblemReviewRequest) =>
+    request<ProblemReviewResponse>(`/api/problems/${problemId}/review`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Submissions ──────────────────────────────────────────────────────────────
