@@ -97,13 +97,23 @@ CodeMaker-Coach-Agent/
 
 ## 6. 개발 및 실행 명령어 가이드
 
-### 백엔드 로컬 실행
+인프라(postgres/qdrant/judge0/neo4j)뿐 아니라 **백엔드(api)·프론트엔드(web)도 모두
+`infra/docker-compose.yml`이 각자의 Dockerfile로 빌드해서 컨테이너로 실행**한다.
+
+### 전체 스택 (기본)
 ```bash
-PYTHONPATH=packages:apps/api uv run uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
+# 리포지토리 루트에서, .env 필요
+docker compose --env-file .env -f infra/docker-compose.yml up -d --build
 ```
 
-### 프론트엔드 로컬 실행
+### 인프라만 띄우고 API/Web은 로컬에서 직접 실행 (개발용)
 ```bash
+docker compose -f infra/docker-compose.yml up -d postgres qdrant
+
+# 백엔드
+PYTHONPATH=packages:apps/api uv run uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
+
+# 프론트엔드 (별도 터미널)
 cd apps/web
 npm install
 npm run dev
