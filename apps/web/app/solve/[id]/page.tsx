@@ -35,6 +35,47 @@ const STATUS_LABEL: Record<SubmissionStatus, string> = {
   MLE: "메모리 초과",
 };
 
+const DEFAULT_TEMPLATES: Record<string, string> = {
+  python: `import sys
+
+def solve():
+    # lines = sys.stdin.read().splitlines()
+    # 여기에 코드를 작성하세요.
+    print("Hello Python")
+
+if __name__ == "__main__":
+    solve()
+`,
+  java: `import java.io.*;
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        // BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        // 여기에 코드를 작성하세요.
+        System.out.println("Hello Java");
+    }
+}
+`,
+  cpp: `#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    // Fast I/O
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+
+    // 여기에 코드를 작성하세요.
+    cout << "Hello C++" << "\\n";
+
+    return 0;
+}
+`
+};
+
 export default function SolvePage({ params }: { params: { id: string } }) {
   const problemId = params.id;
   const router = useRouter();
@@ -43,7 +84,11 @@ export default function SolvePage({ params }: { params: { id: string } }) {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [language, setLanguage] = useState(LANGUAGES[0].value);
-  const [code, setCode] = useState("");
+  const [codes, setCodes] = useState<Record<string, string>>({
+    python: DEFAULT_TEMPLATES.python,
+    java: DEFAULT_TEMPLATES.java,
+    cpp: DEFAULT_TEMPLATES.cpp,
+  });
 
   const [submission, setSubmission] = useState<SubmissionResponse | null>(null);
   const [history, setHistory] = useState<SubmissionResponse[]>([]);
@@ -83,7 +128,8 @@ export default function SolvePage({ params }: { params: { id: string } }) {
   useEffect(() => stopPolling, [stopPolling]);
 
   async function handleSubmit() {
-    if (!code.trim()) {
+    const activeCode = codes[language] || "";
+    if (!activeCode.trim()) {
       setSubmitError("코드를 입력해주세요.");
       return;
     }
@@ -91,7 +137,7 @@ export default function SolvePage({ params }: { params: { id: string } }) {
     setSubmitting(true);
     stopPolling();
     try {
-      const created = await submissionsApi.submit(problemId, { code, language });
+      const created = await submissionsApi.submit(problemId, { code: activeCode, language });
       setSubmission(created);
 
       pollTimer.current = setInterval(async () => {
@@ -303,8 +349,13 @@ export default function SolvePage({ params }: { params: { id: string } }) {
           </div>
 
           <CodeEditor
-            value={code}
-            onChange={setCode}
+            value={codes[language] || ""}
+            onChange={(newCode) => {
+              setCodes((prev) => ({
+                ...prev,
+                [language]: newCode,
+              }));
+            }}
             language={LANGUAGES.find((l) => l.value === language)?.monaco ?? "python"}
           />
 
