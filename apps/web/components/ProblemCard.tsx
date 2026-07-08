@@ -10,8 +10,10 @@ export default function ProblemCard({ problem }: { problem: ProblemSummary }) {
       className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 transition-colors hover:border-brand"
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-base font-semibold text-white">{problem.title}</h3>
-        <DifficultyBadge difficulty={problem.difficulty} />
+        <h3 className="text-base font-semibold text-white min-w-0 break-words">{problem.title}</h3>
+        <div className="flex-shrink-0">
+          <DifficultyBadge difficulty={problem.difficulty} />
+        </div>
       </div>
       <p className="line-clamp-2 text-sm text-muted">{problem.learning_goal}</p>
       <div className="flex flex-wrap gap-1.5">
