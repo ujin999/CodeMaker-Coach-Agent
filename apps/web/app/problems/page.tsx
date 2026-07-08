@@ -182,7 +182,7 @@ export default function ProblemCatalogPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {/* 1. 취약 개념 게이지 */}
               <div className="rounded-lg bg-surface-2 p-4">
-                <p className="font-semibold text-white mb-3">⚠️ 취약 알고리즘 TOP 3</p>
+                <p className="font-semibold text-white mb-3">취약 알고리즘 TOP 3</p>
                 {weaknessReport.weak_concepts.length === 0 ? (
                   <p className="text-xs text-muted py-2">아직 감지된 취약 알고리즘이 없습니다.</p>
                 ) : (
@@ -219,7 +219,7 @@ export default function ProblemCatalogPage() {
 
               {/* 2. 잦은 오답 패턴 */}
               <div className="rounded-lg bg-surface-2 p-4">
-                <p className="font-semibold text-white mb-3">❌ 자주 발생한 오답</p>
+                <p className="font-semibold text-white mb-3">자주 발생한 오답</p>
                 {weaknessReport.top_errors.length === 0 ? (
                   <p className="text-xs text-muted py-2">아직 오답 이력이 누적되지 않았습니다.</p>
                 ) : (
@@ -262,7 +262,7 @@ export default function ProblemCatalogPage() {
                       href={`/generate?algorithm=${weaknessReport.weak_concepts[0].concept}`}
                       className="block text-center rounded-md bg-brand py-2 text-xs font-semibold text-white hover:bg-brand-hover transition-colors"
                     >
-                      취약점 저격 문제 즉시 생성 🎯
+                      취약점 보완 문제 생성하기
                     </Link>
                   </div>
                 )}
