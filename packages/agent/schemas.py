@@ -34,7 +34,7 @@ class GeneratedProblem(BaseModel):
     """Structured output representation of a generated coding problem."""
     problem_id: str = Field(description="A unique identifier for the generated problem")
     title: str = Field(description="Problem title")
-    difficulty: str = Field(description="Difficulty level")
+    difficulty: Literal["easy", "medium", "hard"] = Field(description="Difficulty level")
     algorithm: List[str] = Field(description="Underlying algorithms")
     learning_goal: str = Field(description="Selected learning goal")
     statement: str = Field(description="The problem statement / story in detail")
