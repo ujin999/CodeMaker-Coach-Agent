@@ -28,17 +28,21 @@ AI 에이전트가 CodeMaker Coach Agent를 **순서대로 구현**하기 위한
 > Phase가 크면 Step 단위로 더 잘게 나눠도 된다. (예: `feat/hint-gating`, `feat/hint-chatbot`)
 
 ## 진행 체크리스트
-- [ ] Phase 0 — 프로젝트 초기화
-- [ ] Phase 1 — Agent 코어 뼈대 + LLM 연결
-- [ ] Phase 2 — RAG 파이프라인
-- [ ] Phase 3 — 문제 생성·검증 워크플로우
-- [ ] Phase 4 — 채점 (제출 → 인메모리 큐 → Judge0)
-- [ ] Phase 5 — 힌트 시스템 (핵심)
-- [ ] Phase 6 — 풀이 지원 (오답 분석)
-- [ ] Phase 7 — API 서버 + 인증
-- [ ] Phase 8 — 프론트엔드
-- [ ] Phase 9 — 코드 공유 (커뮤니티)
-- [ ] Phase 10 — 개인화 / Graph RAG [확장]
+
+> 표기: `[x]` 완료 / `[~]` 부분 구현(확장 여지 있음) / `[ ]` 미착수.
+> 이 체크리스트는 "구현 완료 이력"을 반영한다. 세부 미해결 항목은 `error-fix/`를 참조한다.
+
+- [x] Phase 0 — 프로젝트 초기화
+- [x] Phase 1 — Agent 코어 뼈대 + LLM 연결
+- [x] Phase 2 — RAG 파이프라인
+- [x] Phase 3 — 문제 생성·검증 워크플로우 (결정론적 노드 순차 오케스트레이션, LangGraph `StateGraph` 조립은 아님)
+- [x] Phase 4 — 채점 (제출 → 인메모리 큐 → Judge0, `apps/api/app/queue.py` + `judge_worker.py`)
+- [x] Phase 5 — 힌트 시스템 (핵심)
+- [x] Phase 6 — 풀이 지원 (오답 분석)
+- [x] Phase 7 — API 서버 + 인증
+- [x] Phase 8 — 프론트엔드
+- [x] Phase 9 — 코드 공유 (커뮤니티)
+- [~] Phase 10 — 개인화 / Graph RAG [확장] — 기본 연동(Neo4j sync/query, 약점 기반 문제 생성)은 있으나 확장 여지 있음
 
 ---
 

@@ -6,9 +6,18 @@
 
 AGENT_MODE 환경변수: "stub" | "live" | "auto"(기본). auto는 LLM 키 유무로 자동 판단.
 
-⚠️ 미연결 지점(연결되면 알림 대상):
-  - analyze_feedback: AI 측에 generate_feedback chain이 아직 없어 stub 반환.
-    (agent/prompts/feedback.py 프롬프트만 존재) → AI 팀에 chain 추가 요청 필요.
+⚠️ 미연결 지점 (error-fix/08_stub_and_live_integration_gaps.md 참조):
+  - analyze_feedback: LiveAgentGateway에서도 항상 stub을 반환한다. 이 메서드는 현재
+    어떤 라우터에서도 호출되지 않는 미사용 경로다 — 실제 오답 리뷰는
+    `/api/submissions/review` → `agent.review_submission_package()`가 담당하며,
+    그쪽은 결정론적 진단/설명/복잡도/반례 분석까지 완전히 구현되어 있다.
+    "오답 분석이 미구현"이 아니라 "이 메서드 하나가 옛 설계의 잔재"라는 뜻이다.
+
+모드/fallback 경계 요약 (packages/agent/README.md의 "Stub/Test Mode" 절 참조):
+  AGENT_MODE, ENV=test, LLM API 키 유무, USE_FAKE_EMBEDDINGS, settings.judge0_url이
+  각각 독립적으로 stub/fallback 여부를 결정한다. 운영 배포 시 이 조건들이 의도한
+  대로 설정됐는지 확인할 것 — 그렇지 않으면 fallback이 조용히 동작해 장애 발견이
+  늦어질 수 있다.
 """
 
 from __future__ import annotations
@@ -126,10 +135,11 @@ class LiveAgentGateway:
     async def analyze_feedback(
         self, *, problem_id: str, result_type: str, user_code: str, allowed_level: int
     ) -> Feedback:
-        # ⚠️ AI 측에 generate_feedback chain 미구현 → stub 반환.
+        # ⚠️ 미사용 경로 — 실제 오답 리뷰는 /api/submissions/review가 담당한다.
+        # (agent.review_submission_package(), 결정론적으로 완전히 구현됨)
         logger.warning(
-            "analyze_feedback: AI generate_feedback 미구현 → stub 반환 "
-            "(problem_id=%s, result_type=%s)",
+            "analyze_feedback: 미사용 경로 호출됨(stub 반환) — 실제 리뷰는 "
+            "/api/submissions/review를 사용할 것 (problem_id=%s, result_type=%s)",
             problem_id,
             result_type,
         )

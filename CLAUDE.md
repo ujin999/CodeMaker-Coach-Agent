@@ -22,7 +22,7 @@
 
 | 레이어 | 기술 |
 |---|---|
-| Agent 오케스트레이션 | **LangGraph** (State/Node/Edge 워크플로우) |
+| Agent 오케스트레이션 | 결정론적 노드 순차 오케스트레이션(`packages/agent/nodes/workflow.py`). LangGraph `StateGraph` 조립은 아직 목표/확장 단계이며 현재 구현은 아니다 |
 | LLM 연결·Tool·프롬프트 | **LangChain** |
 | LLM Provider | Claude / GPT (env로 설정, `LLM_PROVIDER`) |
 | RAG | Vector DB (Qdrant/pgvector) + LangChain Retriever |
@@ -51,24 +51,33 @@ CodeMaker-Coach-Agent/
 │   └── web/                  # Next.js 프론트엔드
 │
 ├── packages/
-│   ├── agent/                # ★ LangGraph Agent 코어 (앱과 독립된 순수 패키지)
-│   │   ├── graph.py          #   워크플로우 (State/Node/Edge)
-│   │   ├── nodes/            #   각 Agent = 하나의 Node
-│   │   ├── tools/            #   LangChain Tool (run_user_code = Judge0 클라이언트)
+│   ├── agent/                # ★ Agent 코어 (앱과 독립된 순수 패키지)
+│   │   ├── nodes/            #   워크플로우 노드 + nodes/workflow.py(오케스트레이션), nodes/state.py(AgentState)
+│   │   ├── services/         #   Public Service API (generate_problem_package 등, API가 호출하는 진입점)
+│   │   ├── chains/           #   LLM 체인 (problem/testcase/hint/feedback 생성)
+│   │   ├── reference_solvers/#   결정론적 정답 코드 템플릿 + registry
+│   │   ├── testcase_generators/ # 결정론적 테스트케이스 생성기 + registry
+│   │   ├── tools/             #   run_user_code.py = Judge0 클라이언트
 │   │   ├── prompts/          #   PromptTemplate
-│   │   └── state.py          #   GraphState
+│   │   └── schemas.py        #   Pydantic 스키마 (GraphState 역할 겸 public 계약)
 │   ├── rag/                  # RAG 파이프라인 (Loader→Splitter→Embed→VectorStore→Retriever)
-│   └── graphrag/             # Neo4j Node/Edge 스키마 + Cypher
+│   └── graphrag/             # Neo4j 연동 (driver/sync/query) — 오답 이력 적재 + 약점 개인화
 │
 ├── infra/
-│   └── docker-compose.yml    # postgres, redis, neo4j, qdrant, judge0, api, web
+│   └── docker-compose.yml    # postgres, neo4j, qdrant, judge0(+judge0 전용 judge0-redis), api, web
 │
 └── tests/
 ```
 
 > **핵심 설계 원칙**: `packages/agent`는 웹·API·채점과 **독립된 순수 Python 패키지**다.
-> API는 `from agent.graph import build_graph`처럼 import만 하고, Agent는 CLI/테스트/노트북에서 단독 실행 가능해야 한다.
+> API는 `app.gateway.AgentGateway`를 경계로 두고 내부에서 `agent`의 public service API
+> (`generate_problem_package`, `request_hint_package`, `review_submission_package` 등)를 호출한다.
+> 실제 흐름: `FastAPI router → app.gateway → agent services/chains/nodes`.
+> Agent는 CLI/테스트/노트북에서 단독 실행 가능해야 한다.
 > 채점(`apps/judge`)은 **직접 만들지 않는다** — Judge0 컨테이너를 띄우고 Tool에서 REST 호출한다.
+>
+> **Redis 관련 주의**: 앱 채점 큐는 인메모리(`apps/api/app/queue.py`)이며 Redis를 쓰지 않는다.
+> compose의 `judge0-redis`는 Judge0 스택 내부 전용이며 앱 큐와 무관하다.
 
 ---
 
