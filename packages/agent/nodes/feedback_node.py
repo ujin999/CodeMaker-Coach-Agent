@@ -33,7 +33,10 @@ def analyze_submission_deterministic(
         likely_causes = []
         next_steps = ["풀이 아이디어를 말로 설명해보기", "시간 복잡도와 공간 복잡도 정리하기"]
     elif result_type == "WA":
-        summary = "틀렸습니다. 예제와 경계값 입력에 대한 로직을 검토해야 합니다."
+        summary = (
+            "제출 결과는 틀린 답(Wrong Answer / WA)입니다. 이 오류는 기대하는 정답 출력과 실제 제출한 프로그램의 출력값이 서로 다를 때 발생합니다. "
+            "사용자 코드의 계산 결과가 기대값과 다른 경우이므로, 문제의 조건이나 극단적인 경계값(0, 최소값, 최대값) 등을 올바르게 처리했는지 점검해 보세요."
+        )
         if submission.expected_output is not None and submission.actual_output is not None:
             exp_val = submission.expected_output.strip()
             act_val = submission.actual_output.strip()
@@ -41,12 +44,15 @@ def analyze_submission_deterministic(
                 exp_val = exp_val[:47] + "..."
             if len(act_val) > 50:
                 act_val = act_val[:47] + "..."
-            summary = f"틀렸습니다. 기대 출력값('{exp_val}')과 실제 출력값('{act_val}')이 일치하지 않습니다."
+            summary = (
+                f"제출 결과는 틀린 답(Wrong Answer / WA)입니다. 기대 출력값('{exp_val}')과 실제 출력값('{act_val}')이 일치하지 않습니다. "
+                "조건문 처리 흐름이나 극단적 입력을 처리하는 로직을 검토해 보세요."
+            )
 
         likely_causes = [
-            "경계 조건(Boundary condition) 처리 오류",
-            "입력 데이터 파싱(Parsing) 관련 실수",
-            "Off-by-one 에러 (1 차이로 인한 루프/인덱스 에러)",
+            "경계 조건(Boundary condition) 처리 오류 (예: 최소/최대값 오류)",
+            "입력 데이터 파싱(Parsing) 관련 사소한 포맷 실수",
+            "Off-by-one 에러 (1 차이로 인한 루프 횟수 또는 인덱스 범위 오차)",
             "문제 조건 및 제약사항에 대한 오해"
         ]
         next_steps = [
@@ -59,11 +65,14 @@ def analyze_submission_deterministic(
                 input_preview = input_preview[:47] + "..."
             next_steps.append(f"실패한 입력값('{input_preview}')을 디버깅 데이터로 사용하기")
     elif result_type == "TLE":
-        summary = "시간 초과입니다. 알고리즘의 시간 복잡도를 줄여야 합니다."
+        summary = (
+            "제출 결과는 시간 초과(Time Limit Exceeded / TLE)입니다. 이 오류는 프로그램이 주어진 제한 시간 내에 수행을 완료하지 못했을 때 발생합니다. "
+            "현재 구현 방식의 시간 복잡도가 너무 높아 대용량 데이터를 처리하지 못하는 상태입니다."
+        )
         likely_causes = [
-            "문제에서 의도한 알고리즘을 사용하지 않고 비효율적인 완전 탐색 등을 사용함",
-            "반복문(Loop) 내부의 시간 복잡도가 너무 큼",
-            "불필요하게 중복된 연산이 매번 호출됨"
+            "비효율적인 다중 루프(Nested Loop) 등으로 인한 O(N^2) 이상의 시간 복잡도 유발",
+            "불필요하게 동일한 함수/메서드를 반복해서 계산함",
+            "루프 내 종료 조건(Termination condition)이 충족되지 않아 무한 루프에 빠짐"
         ]
         next_steps = [
             f"문제에 명시된 예상 시간 복잡도 '{problem.expected_time_complexity}'와 현재 구현의 시간 복잡도를 비교해 보세요.",
@@ -71,12 +80,15 @@ def analyze_submission_deterministic(
             "동적 계획법(DP)이나 메모이제이션을 통해 중복 연산을 회피할 수 있는지 검토하기"
         ]
     elif result_type == "RE":
-        summary = "런타임 에러입니다. 예외 처리가 누락되었거나 비정상적인 메모리/인덱스 참조가 발생했습니다."
+        summary = (
+            "제출 결과는 런타임 에러(Runtime Error / RE)입니다. 이 오류는 프로그램 실행 중에 예외(Exception)가 발생해 비정상 종료된 경우에 나타납니다. "
+            "배열 범위 초과, 잘못된 메모리/인덱스 참조, 혹은 재귀 한도 초과 등이 원인일 수 있습니다."
+        )
         likely_causes = [
-            "배열 또는 리스트 인덱스 범위를 초과함 (IndexError)",
-            "빈 입력값 또는 비정상적인 경계 조건에 대한 예외 처리 누락",
-            "재귀 호출 깊이(Recursion limit) 초과",
-            "잘못된 자료형 변환 (Type conversion error)"
+            "배열 또는 리스트 인덱스 범위를 초과하여 참조함 (IndexError / Out of Bounds)",
+            "딕셔너리 등에서 존재하지 않는 키를 호출함 (KeyError)",
+            "재귀 깊이(Recursion Depth) 한도 초과 (RecursionError)",
+            "숫자 타입이 아닌 문자열을 숫자로 변환하는 등의 변환 오류 (ValueError)"
         ]
         next_steps = [
             "실패한 테스트케이스 입력값을 확인하여 로컬에서 예외 재현하기",
@@ -84,7 +96,10 @@ def analyze_submission_deterministic(
             "재귀 대신 반복문으로 변경하거나 sys.setrecursionlimit() 설정 검토하기"
         ]
     elif result_type == "MLE":
-        summary = "메모리 초과입니다. 불필요하게 많은 공간을 사용 중인지 확인해야 합니다."
+        summary = (
+            "제출 결과는 메모리 초과(Memory Limit Exceeded / MLE)입니다. 이 오류는 프로그램이 사용할 수 있도록 허용된 최대 메모리 용량을 초과했을 때 발생합니다. "
+            "지나치게 큰 배열/리스트나 불필요한 객체들을 한 번에 메모리에 적재했는지 확인이 필요합니다."
+        )
         likely_causes = [
             "지나치게 거대한 크기의 배열이나 테이블(DP 테이블 등)을 할당함",
             "불필요한 중복 상태를 메모리에 보관 중임",
@@ -96,7 +111,10 @@ def analyze_submission_deterministic(
             "그래프 표현 시 인접 행렬 대신 인접 리스트(Adjacency List) 사용하기"
         ]
     elif result_type == "CE":
-        summary = "컴파일 에러입니다. 코드의 문법이나 환경 설정을 확인해 보세요."
+        summary = (
+            "제출 결과는 컴파일 에러(Compile Error / CE)입니다. 이 오류는 구문(Syntax) 오류 등으로 인해 컴파일/빌드에 실패했을 때 발생합니다. "
+            "사용하시는 프로그래밍 언어의 문법 규격을 다시 한 번 확인해 보세요."
+        )
         likely_causes = [
             "언어의 문법 오류 (Syntax Error)",
             "필수 라이브러리/모듈 임포트 누락",
@@ -107,7 +125,10 @@ def analyze_submission_deterministic(
             "사용 중인 언어(예: Python, C++, Java)에 맞는 표준 구문을 정확히 준수했는지 검토하기"
         ]
     elif result_type == "PE":
-        summary = "출력 형식 오류입니다. 문제에서 요구하는 띄어쓰기, 줄바꿈 등을 확인하세요."
+        summary = (
+            "제출 결과는 출력 형식 오류(Presentation Error / PE)입니다. 이 오류는 연산한 정답 결과 자체는 맞으나, "
+            "출력 포맷(띄어쓰기, 줄바꿈, 대소문자 등)이 채점 기준 양식과 미세하게 일치하지 않을 때 발생합니다."
+        )
         likely_causes = [
             "출력값 끝에 불필요한 공백 문자나 빈 줄이 추가됨",
             "줄바꿈 포맷이 정답 기준과 불일치함"
@@ -170,6 +191,11 @@ def generate_feedback_node(state: AgentState) -> AgentState:
     submission = state["submission_result"]
 
     report = build_feedback_from_submission(problem, submission)
+
+    if report.generated_by == "llm":
+        new_state = state.copy()
+        new_state["feedback_report"] = report
+        return new_state
 
     diagnosis = state.get("error_diagnosis")
     explanation = state.get("failed_case_explanation")
