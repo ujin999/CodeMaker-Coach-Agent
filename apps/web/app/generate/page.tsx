@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ApiError, problemsApi } from "@/lib/api";
@@ -9,7 +9,7 @@ import { ALGORITHM_CATEGORIES, DIFFICULTY_LEVELS, LANGUAGES } from "@/lib/consta
 import type { ProblemDetail } from "@/lib/types";
 import DifficultyBadge from "@/components/DifficultyBadge";
 
-export default function GeneratePage() {
+function GenerateForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [algorithm, setAlgorithm] = useState(ALGORITHM_CATEGORIES[0].value);
@@ -287,5 +287,17 @@ export default function GeneratePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GeneratePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[400px] items-center justify-center text-muted">
+        폼을 로드하는 중...
+      </div>
+    }>
+      <GenerateForm />
+    </Suspense>
   );
 }
