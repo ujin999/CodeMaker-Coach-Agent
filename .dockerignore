@@ -2,7 +2,10 @@
 .git
 .venv
 apps/web
-docs
+!docs/
+!docs/**
+!docs/knowledge/
+!docs/knowledge/**
 tests
 .pytest_cache
 .mypy_cache

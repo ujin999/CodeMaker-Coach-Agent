@@ -41,13 +41,6 @@ export default function GeneratePage() {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-  function toggleWeakness(value: string) {
-    setWeaknesses((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -60,7 +53,7 @@ export default function GeneratePage() {
         learning_goal: learningGoal || undefined,
         problem_style: problemStyle || undefined,
         recent_weaknesses: weaknesses,
-        seed: crypto.randomUUID(),
+        seed: createClientSeed(),
         force_new: true,
         avoid_problem_ids: avoidProblemIds,
       });

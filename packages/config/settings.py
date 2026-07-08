@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # ── Embeddings / Vector Store (RAG) ───────────
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str = ""
-    embedding_model: str = ""
+    embedding_model: str = "text-embedding-3-small"
 
     # ── Database ──────────────────────────────────
     database_url: str = "postgresql://postgres:postgres@localhost:5432/codemaker"

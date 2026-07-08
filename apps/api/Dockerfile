@@ -20,6 +20,7 @@ COPY packages ./packages
 COPY apps/api ./apps/api
 COPY alembic.ini ./
 COPY alembic ./alembic
+COPY docs ./docs
 
 RUN uv sync --frozen --no-dev
 
@@ -29,6 +30,6 @@ ENV PYTHONPATH="/app/packages:/app/apps/api"
 COPY apps/api/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-EXPOSE 8000
+EXPOSE 10000
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
