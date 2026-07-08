@@ -165,6 +165,11 @@ export default function SolvePage({ params }: { params: { id: string } }) {
                 user_code: activeCode,
                 language,
                 result_type: latest.status,
+                failed_testcase_name: latest.failed_testcase_name,
+                failed_input: latest.failed_input,
+                expected_output: latest.expected_output,
+                actual_output: latest.actual_output,
+                stderr: latest.stderr,
                 include_concept_context: false,
               })
                 .then(setReviewReport)

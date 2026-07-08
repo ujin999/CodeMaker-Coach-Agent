@@ -132,6 +132,11 @@ export interface SubmissionResponse {
   status: SubmissionStatus;
   runtime_ms: number | null;
   memory_kb: number | null;
+  failed_testcase_name?: string | null;
+  failed_input?: string | null;
+  expected_output?: string | null;
+  actual_output?: string | null;
+  stderr?: string | null;
   created_at: string;
 }
 
@@ -144,6 +149,11 @@ export interface SubmissionReviewRequest {
   user_code: string;
   language?: string;
   result_type: string;
+  failed_testcase_name?: string | null;
+  failed_input?: string | null;
+  expected_output?: string | null;
+  actual_output?: string | null;
+  stderr?: string | null;
   include_concept_context?: boolean;
 }
 

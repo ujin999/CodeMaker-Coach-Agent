@@ -32,6 +32,11 @@ class Submission(Base):
     runtime_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     memory_kb: Mapped[int | None] = mapped_column(Integer, nullable=True)
     judge0_token: Mapped[str | None] = mapped_column(String(100), nullable=True)  # 비동기 폴링용
+    failed_testcase_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    failed_input: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expected_output: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actual_output: Mapped[str | None] = mapped_column(Text, nullable=True)
+    stderr: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

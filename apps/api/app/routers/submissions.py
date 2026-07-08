@@ -72,6 +72,11 @@ async def review_submission(
         result_type=body.result_type,
         user_code=body.user_code,
         language=body.language,
+        failed_testcase_name=body.failed_testcase_name,
+        failed_input=body.failed_input,
+        expected_output=body.expected_output,
+        actual_output=body.actual_output,
+        stderr=body.stderr,
     )
 
     package = await review_submission_package(

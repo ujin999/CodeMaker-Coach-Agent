@@ -49,6 +49,12 @@ async def judge_submission(submission_id: int) -> None:
             submission.status = result["status"]
             submission.runtime_ms = result.get("runtime_ms")
             submission.memory_kb = result.get("memory_kb")
+            if result["status"] != "AC":
+                submission.failed_testcase_name = result.get("failed_testcase_name")
+                submission.failed_input = result.get("failed_input")
+                submission.expected_output = result.get("expected_output")
+                submission.actual_output = result.get("actual_output")
+                submission.stderr = result.get("stderr")
             db.commit()
 
             # AC면 SolvedRecord 생성 (커뮤니티 gating용 — FR-30)
@@ -101,6 +107,7 @@ async def _call_judge0(submission: Submission, db: Session) -> dict:
     worst_status = "AC"
     worst_runtime = 0
     worst_memory = 0
+    failed_details = {}
 
     async with httpx.AsyncClient(base_url=settings.judge0_url, timeout=30) as client:
         for tc in hidden_cases[:5]:  # 최대 5케이스
@@ -119,9 +126,34 @@ async def _call_judge0(submission: Submission, db: Session) -> dict:
 
             if tc_status != "AC":
                 worst_status = tc_status
+                
+                import base64
+                def decode_val(val):
+                    if not val:
+                        return val
+                    try:
+                        return base64.b64decode(val.encode()).decode("utf-8")
+                    except Exception:
+                        return val
+
+                stdout = decode_val(data.get("stdout"))
+                stderr = decode_val(data.get("stderr") or data.get("compile_output"))
+                
+                failed_details = {
+                    "failed_testcase_name": f"hidden-{tc.id}",
+                    "failed_input": tc.input,
+                    "expected_output": tc.expected_output,
+                    "actual_output": stdout,
+                    "stderr": stderr,
+                }
                 break
 
             worst_runtime = max(worst_runtime, int(float(data.get("time", 0) or 0) * 1000))
             worst_memory = max(worst_memory, int(data.get("memory", 0) or 0))
 
-    return {"status": worst_status, "runtime_ms": worst_runtime, "memory_kb": worst_memory}
+    return {
+        "status": worst_status,
+        "runtime_ms": worst_runtime,
+        "memory_kb": worst_memory,
+        **failed_details
+    }

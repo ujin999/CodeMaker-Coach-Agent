@@ -74,6 +74,11 @@ class SubmissionResponse(BaseModel):
     status: str  # PENDING | JUDGING | AC | WA | TLE | RE | MLE
     runtime_ms: Optional[int]
     memory_kb: Optional[int]
+    failed_testcase_name: Optional[str] = None
+    failed_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    stderr: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -168,6 +173,11 @@ class SubmissionReviewRequest(BaseModel):
     user_code: str = Field(description="사용자 제출 코드")
     language: str = Field(default="python", description="제출 언어")
     result_type: str = Field(default="WA", description="채점 결과 (AC/WA/TLE/RE/MLE/CE)")
+    failed_testcase_name: Optional[str] = None
+    failed_input: Optional[str] = None
+    expected_output: Optional[str] = None
+    actual_output: Optional[str] = None
+    stderr: Optional[str] = None
     include_concept_context: bool = Field(default=True, description="RAG 개념 컨텍스트 포함 여부")
 
 

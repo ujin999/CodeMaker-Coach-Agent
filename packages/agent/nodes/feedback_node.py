@@ -140,14 +140,19 @@ def analyze_submission_deterministic(
 def build_feedback_from_submission(
     problem: GeneratedProblem,
     submission: SubmissionResult,
-    prefer_llm: bool = False,
+    prefer_llm: bool = True,
 ) -> FeedbackReport:
     """
-    Default to deterministic feedback.
-    If prefer_llm=True, keep the deterministic result for now.
-    Do not call LLM yet in this function.
+    Generate feedback using LLM when prefer_llm is True, falling back to deterministic if it fails.
     """
-    # LLM-based personalized feedback can be added later as an explicit opt-in path.
+    if prefer_llm:
+        try:
+            from agent.chains.feedback_generation import generate_feedback
+            return generate_feedback(problem, submission)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"LLM feedback generation failed: {e}. Falling back to deterministic.")
+            return analyze_submission_deterministic(problem, submission)
     return analyze_submission_deterministic(problem, submission)
 
 
