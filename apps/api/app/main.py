@@ -46,3 +46,29 @@ def health() -> dict:
     gateway = get_agent_gateway()
     mode = "stub" if isinstance(gateway, StubAgentGateway) else "live"
     return {"status": "ok", "agent_mode": mode}
+
+
+@app.on_event("startup")
+async def start_sweeper_agent():
+    import asyncio
+    from app.db import SessionLocal
+    from agent.services.sweeper_service import run_sweeper_cycle
+
+    async def sweeper_scheduler_loop():
+        # 최초 기동 후 10초 대기하여 인프라 준비 완료 보증
+        await asyncio.sleep(10)
+        logger = logging.getLogger("app.main")
+        logger.info("Background Problem Sweeper Agent scheduler initiated.")
+        while True:
+            try:
+                db = SessionLocal()
+                # 백그라운드 비동기 루프로 정화 실행
+                await run_sweeper_cycle(db)
+            except Exception as e:
+                logger.exception(f"Error occurred in background sweeper cycle: {e}")
+            finally:
+                db.close()
+            # 1시간 주기로 반복 실행
+            await asyncio.sleep(3600)
+
+    asyncio.create_task(sweeper_scheduler_loop())

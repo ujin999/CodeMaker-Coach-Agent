@@ -719,3 +719,18 @@ class ProblemReportAssessment(BaseModel):
         return v
 
         return self
+
+
+class StubCheckReport(BaseModel):
+    """스텁/테스트 더미 문제 판정 리포트."""
+    problem_id: str
+    is_stub: bool = Field(description="명백한 테스트용 가짜/스텁 데이터인지 여부")
+    reason: str = Field(description="판정 근거 및 사유 (한국어)")
+
+
+class BuggyProblemReport(BaseModel):
+    """출제 결함 문제 판정 리포트."""
+    problem_id: str
+    is_faulty_problem: bool = Field(description="문제 자체에 결함이 존재하여 풀 수 없는 상태인지 여부")
+    bug_description: Optional[str] = Field(None, description="감지된 버그 및 출제 오류에 대한 설명 (한국어)")
+    error_type: Optional[str] = Field(None, description="유저 런타임 에러 로그 분석 상의 주된 오류 유형")
