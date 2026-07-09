@@ -32,6 +32,7 @@ async def run_sweeper_cycle(db: Session) -> None:
 
     deleted_count = 0
     for p in candidates:
+        from agent.schemas import HintBlueprint
         # Pydantic 모델로 변환하여 에이전트 노드에 전송
         gen_prob = GeneratedProblem(
             problem_id=p.id,
@@ -46,6 +47,16 @@ async def run_sweeper_cycle(db: Session) -> None:
             sample_input=p.sample_input,
             sample_output=p.sample_output,
             expected_time_complexity=p.expected_time_complexity,
+            hint_blueprint=HintBlueprint(
+                intended_algorithm=p.algorithm,
+                core_insight=p.learning_goal or "알고리즘 구현 접근 방식",
+                common_misconceptions=[],
+                edge_case_focus=[],
+                forbidden_disclosures=[],
+                level_1_guidance="",
+                level_2_guidance="",
+                level_3_guidance="",
+            ),
         )
 
         try:
@@ -116,6 +127,7 @@ async def run_sweeper_cycle(db: Session) -> None:
                     error_dumps.append(dump_info)
 
             error_logs_text = "\n".join(error_dumps)
+            from agent.schemas import HintBlueprint
             gen_prob = GeneratedProblem(
                 problem_id=p.id,
                 title=p.title,
@@ -129,6 +141,16 @@ async def run_sweeper_cycle(db: Session) -> None:
                 sample_input=p.sample_input,
                 sample_output=p.sample_output,
                 expected_time_complexity=p.expected_time_complexity,
+                hint_blueprint=HintBlueprint(
+                    intended_algorithm=p.algorithm,
+                    core_insight=p.learning_goal or "알고리즘 구현 접근 방식",
+                    common_misconceptions=[],
+                    edge_case_focus=[],
+                    forbidden_disclosures=[],
+                    level_1_guidance="",
+                    level_2_guidance="",
+                    level_3_guidance="",
+                ),
             )
 
             try:
